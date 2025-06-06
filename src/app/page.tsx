@@ -110,8 +110,9 @@ const HomePage: React.FC = () => {
 
   // Download PDF using jsPDF
   const downloadPDF = () => {
-    // Ensure jsPDF script is loaded
-    const jsPDF = (window as any).jspdf?.jsPDF;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const jsPDF = (window as any).jspdf?.jsPDF;
+
     if (!jsPDF) return;
 
     const doc = new jsPDF();
