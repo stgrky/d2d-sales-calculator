@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import ClientRegister from "./ClientRegister";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,9 +25,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <head>
+        {/* If you have a manifest.json (for PWA), you can add it here: */}
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#007BFF" />
+      </head>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {/* This client component will register the service worker */}
+        <ClientRegister />
         {children}
       </body>
     </html>

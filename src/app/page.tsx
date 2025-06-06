@@ -240,6 +240,7 @@ const jsPDF = (window as any).jspdf?.jsPDF;
   return (
     <>
       <Head>
+        <link rel="manifest" href="/manifest.json" />
         <title>Aquaria Hydropack Quote</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </Head>
