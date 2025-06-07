@@ -26,10 +26,22 @@ const HomePage: React.FC = () => {
   // Price lookup tables
   const modelPrices: Record<
     string,
-    { system: number; install: number; ship: number; pad: number; mobility: number }
+    {
+      system: number;
+      install: number;
+      ship: number;
+      pad: number;
+      mobility: number;
+    }
   > = {
     s: { system: 9999, install: 6750, ship: 645, pad: 2750, mobility: 500 },
-    standard: { system: 17499, install: 7450, ship: 1095, pad: 3250, mobility: 500 },
+    standard: {
+      system: 17499,
+      install: 7450,
+      ship: 1095,
+      pad: 3250,
+      mobility: 500,
+    },
     x: { system: 29999, install: 8750, ship: 1550, pad: 4550, mobility: 1000 },
   };
 
@@ -53,51 +65,65 @@ const HomePage: React.FC = () => {
     "San Antonio": 660,
   };
 
-  const filterPrices: Record<string, number> = { s: 350, standard: 500, x: 700 };
+  const filterPrices: Record<string, number> = {
+    s: 350,
+    standard: 500,
+    x: 700,
+  };
 
   const pumpPrices: Record<string, number> = { dab: 1900, mini: 800, "": 0 };
 
-  const trenchRates: Record<string, number> = { dirt: 54.5, rock: 59.5, limestone: 61.5, "": 0 };
+  const trenchRates: Record<string, number> = {
+    dirt: 54.5,
+    rock: 59.5,
+    limestone: 61.5,
+    "": 0,
+  };
 
   // Calculate total when "Calculate Total" button is clicked
   const calculateTotal = () => {
     let subtotal = 0;
     let taxable = 0;
+    let installTotal = 0;
 
     if (model) {
       subtotal += modelPrices[model].system;
       if (!unitOnly) subtotal += modelPrices[model].install;
       subtotal += modelPrices[model].ship;
-      if (unitPad) subtotal += modelPrices[model].pad;
       if (mobility) subtotal += modelPrices[model].mobility;
     }
 
+    // Installation-related components (to be discounted)
+    if (unitPad) installTotal += modelPrices[model]?.pad || 0;
+    if (tankPad) installTotal += tankPads[tank] || 0;
+    installTotal += (trenchRates[trenchingType] || 0) * trenchDistance;
+    if (connection === "t-valve") installTotal += 75;
+    if (panelUpgrade === "panel") installTotal += 8000;
+    if (panelUpgrade === "subpanel") installTotal += 3000;
+
+    subtotal += installTotal * 0.75; // Apply 25% discount to install-related total
+
+    // Tank base + delivery (not discounted)
     if (tank) {
       const tCost = tankPrices[tank] || 0;
       subtotal += tCost;
       taxable += tCost;
-      if (tankPad) subtotal += tankPads[tank] || 0;
       if (city && cityDelivery[city]) subtotal += cityDelivery[city];
     }
 
+    // Filters
     if (filter) {
       const fCost = (filterPrices[filter] || 0) * filterQty;
       subtotal += fCost;
       taxable += fCost;
     }
 
+    // Pump
     if (pump) {
       const pCost = pumpPrices[pump] || 0;
       subtotal += pCost;
       taxable += pCost;
     }
-
-    if (connection === "t-valve") subtotal += 75;
-
-    subtotal += (trenchRates[trenchingType] || 0) * trenchDistance;
-
-    if (panelUpgrade === "panel") subtotal += 8000;
-    if (panelUpgrade === "subpanel") subtotal += 3000;
 
     subtotal += 500; // Admin fee
 
@@ -107,11 +133,10 @@ const HomePage: React.FC = () => {
 
     setTotal(parseFloat(grandTotal.toFixed(2)));
   };
-
   // Download PDF using jsPDF
   const downloadPDF = () => {
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const jsPDF = (window as any).jspdf?.jsPDF;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const jsPDF = (window as any).jspdf?.jsPDF;
 
     if (!jsPDF) return;
 
@@ -151,24 +176,33 @@ const jsPDF = (window as any).jspdf?.jsPDF;
       // Main Product
       addSectionHeader("Main Product");
       const modelText = model
-        ? (document.querySelector(`#model option[value='${model}']`) as HTMLOptionElement)
-            .textContent
+        ? (
+            document.querySelector(
+              `#model option[value='${model}']`
+            ) as HTMLOptionElement
+          ).textContent
         : "None";
       addLine("Hydropack Model", modelText || "None");
 
       // Tank Selection
       addSectionHeader("Tank Selection");
       const tankText = tank
-        ? (document.querySelector(`#tank option[value='${tank}']`) as HTMLOptionElement)
-            .textContent
+        ? (
+            document.querySelector(
+              `#tank option[value='${tank}']`
+            ) as HTMLOptionElement
+          ).textContent
         : "None";
       addLine("Selected Tank", tankText || "None");
 
       // Additional Filters
       addSectionHeader("Additional Filters");
       const filterText = filter
-        ? (document.querySelector(`#filter option[value='${filter}']`) as HTMLOptionElement)
-            .textContent
+        ? (
+            document.querySelector(
+              `#filter option[value='${filter}']`
+            ) as HTMLOptionElement
+          ).textContent
         : "None";
       addLine("Extra Filter(s)", `${filterText || "None"} x${filterQty}`);
 
@@ -184,8 +218,10 @@ const jsPDF = (window as any).jspdf?.jsPDF;
       doc.text("Description", 110, y);
       y += 7;
       doc.setFont(undefined, "normal");
-      if (unitPad) addService("Unit Concrete Pad", "1", "Concrete base for main system");
-      if (tankPad) addService("Tank Concrete Pad", "1", "Concrete base for tank support");
+      if (unitPad)
+        addService("Unit Concrete Pad", "1", "Concrete base for main system");
+      if (tankPad)
+        addService("Tank Concrete Pad", "1", "Concrete base for tank support");
       if (trenchingType && trenchDistance > 0)
         addService(
           `Trenching (${trenchingType})`,
@@ -232,7 +268,8 @@ const jsPDF = (window as any).jspdf?.jsPDF;
   // Ensure jsPDF script is loaded on client side
   useEffect(() => {
     const script = document.createElement("script");
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    script.src =
+      "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
     script.async = true;
     document.body.appendChild(script);
   }, []);
