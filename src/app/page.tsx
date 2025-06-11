@@ -101,7 +101,7 @@ const HomePage: React.FC = () => {
     if (panelUpgrade === "panel") installTotal += 8000;
     if (panelUpgrade === "subpanel") installTotal += 3000;
 
-    subtotal += installTotal * 0.75; // Apply 25% discount to install-related total
+    subtotal += installTotal * 0.75; // Apply 25% discount to -related total
 
     // Tank base + delivery (not discounted)
     if (tank) {
