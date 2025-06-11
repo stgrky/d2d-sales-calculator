@@ -34,15 +34,15 @@ const HomePage: React.FC = () => {
       mobility: number;
     }
   > = {
-    s: { system: 9999, install: 5063, ship: 645, pad: 2750, mobility: 500 },
+    s: { system: 9999, install: 0, ship: 645, pad: 2750, mobility: 500 },
     standard: {
       system: 17499,
-      install: 5583,
+      install: 0,
       ship: 1095,
       pad: 3250,
       mobility: 500,
     },
-    x: { system: 29999, install: 6563, ship: 1550, pad: 4550, mobility: 1000 },
+    x: { system: 29999, install: 0, ship: 1550, pad: 4550, mobility: 1000 },
   };
 
   const tankPrices: Record<string, number> = {
@@ -101,7 +101,7 @@ const HomePage: React.FC = () => {
     if (panelUpgrade === "panel") installTotal += 8000;
     if (panelUpgrade === "subpanel") installTotal += 3000;
 
-    subtotal += installTotal * 0.75; // Apply 25% discount to -related total
+    subtotal += installTotal * 1; // No discount
 
     // Tank base + delivery (not discounted)
     if (tank) {
