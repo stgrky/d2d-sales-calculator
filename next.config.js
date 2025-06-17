@@ -4,15 +4,12 @@ const withPWA = require("next-pwa")({
   register: true,
   skipWaiting: true,
 
-  // ---------------------------------------------
-  // ← Add this to skip precaching `app-build-manifest.json`
   buildExcludes: [/app-build-manifest\.json$/],
 
   runtimeCaching: [
     {
-      // Cache the jsPDF CDN so PDF still works offline
-      urlPattern:
-        /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/jspdf\/2\.5\.1\/jspdf\.umd\.min\.js$/,
+      // Cache jsPDF for offline PDF generation
+      urlPattern: /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/jspdf\/2\.5\.1\/jspdf\.umd\.min\.js$/,
       handler: "StaleWhileRevalidate",
       options: {
         cacheName: "jsdelivr-jspdf",
@@ -22,11 +19,16 @@ const withPWA = require("next-pwa")({
         },
       },
     },
-    // …you can add more runtimeCaching rules here if needed…
   ],
 });
 
 module.exports = withPWA({
   reactStrictMode: true,
-  // (remove swcMinify—Next 15+ does SWC minification by default)
+
+  // Optional: if you're using images in next/image
+  images: {
+    domains: ["raw.githubusercontent.com"],
+  },
+
+  // Do NOT include "__PWA_START_URL__" here! It's set automatically at build time
 });
