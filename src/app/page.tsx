@@ -3,6 +3,8 @@
 // pages/index.tsx
 import { useState, useEffect } from "react";
 import Head from "next/head";
+import Link from "next/link";
+
 
 const HomePage: React.FC = () => {
   // State for form inputs
@@ -18,12 +20,12 @@ const HomePage: React.FC = () => {
   const [filterQty, setFilterQty] = useState<number>(1);
   const [pump, setPump] = useState<string>("");
   const [connection, setConnection] = useState<string>("");
-  const [trenchingType, setTrenchingType] = useState<string>("");
+  const [trenchingType, setTrenchingType] = useState<string>("");  
   const [trenchDistance, setTrenchDistance] = useState<number>(0);
   const [panelUpgrade, setPanelUpgrade] = useState<string>("");
   const [total, setTotal] = useState<number>(0);
 
-  // Price lookup tables
+  // Price lookup
   const modelPrices: Record<
     string,
     {
@@ -58,17 +60,24 @@ const HomePage: React.FC = () => {
   };
 
   const cityDelivery: Record<string, number> = {
-    Austin: 999,
+    "Austin": 999,
     "Corpus Christi": 858,
-    Dallas: 577.5,
-    Houston: 200,
+    "Dallas": 577.5,
+    "Houston": 200,
     "San Antonio": 660,
   };
 
+  const sensorPrices: Record<string, number> = {
+   "": 0,
+   normal: 35,
+  };
+
+
   const filterPrices: Record<string, number> = {
-    s: 350,
-    standard: 500,
-    x: 700,
+    // Last updated 06/17
+    s: 100,
+    standard: 150,
+    x: 200,
   };
 
   const pumpPrices: Record<string, number> = { dab: 1900, mini: 800, "": 0 };
@@ -77,6 +86,8 @@ const HomePage: React.FC = () => {
     dirt: 54.5,
     rock: 59.5,
     limestone: 61.5,
+    elec_above_gr: 35.5,
+    plumb_above_gr: 26.5,
     "": 0,
   };
 
@@ -93,7 +104,7 @@ const HomePage: React.FC = () => {
       if (mobility) subtotal += modelPrices[model].mobility;
     }
 
-    // Installation-related components (to be discounted)
+    // Installation-related components (to be potentially discounted)
     if (unitPad) installTotal += modelPrices[model]?.pad || 0;
     if (tankPad) installTotal += tankPads[tank] || 0;
     installTotal += (trenchRates[trenchingType] || 0) * trenchDistance;
@@ -111,6 +122,13 @@ const HomePage: React.FC = () => {
       if (city && cityDelivery[city]) subtotal += cityDelivery[city];
     }
 
+    // Tank sensor
+    if (sensor) {
+      const sCost = sensorPrices[sensor] || 0;
+      subtotal += sCost;
+      taxable += sCost;
+    }
+
     // Filters
     if (filter) {
       const fCost = (filterPrices[filter] || 0) * filterQty;
@@ -124,6 +142,7 @@ const HomePage: React.FC = () => {
       subtotal += pCost;
       taxable += pCost;
     }
+    
 
     subtotal += 500; // Admin fee
 
@@ -133,6 +152,7 @@ const HomePage: React.FC = () => {
 
     setTotal(parseFloat(grandTotal.toFixed(2)));
   };
+
   // Download PDF using jsPDF
   const downloadPDF = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -246,6 +266,7 @@ const HomePage: React.FC = () => {
       addSectionHeader("Admin & Processing Fee");
 
       // Tax Section
+      // To edit later, change phrasing
       addSectionHeader("8.25% Sales Tax");
 
       // Total
@@ -490,6 +511,12 @@ const HomePage: React.FC = () => {
         >
           Download Quote PDF
         </button>
+        <Link href="/financing">
+   <div className="block w-full py-3 mt-4 text-lg bg-gray-600 text-white rounded text-center hover:bg-gray-700 cursor-pointer">
+    See Financing Options
+  </div>
+</Link>
+
       </div>
     </>
   );

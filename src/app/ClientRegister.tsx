@@ -1,8 +1,22 @@
 "use client";
 
-// Importing this will automatically register `/sw.js` in the browser.
-import "next-pwa/register";
+import { useEffect } from "react";
 
 export default function ClientRegister() {
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("/sw.js")
+          .then((registration) => {
+            console.log("Service Worker registered with scope:", registration.scope);
+          })
+          .catch((error) => {
+            console.error("Service Worker registration failed:", error);
+          });
+      });
+    }
+  }, []);
+
   return null;
 }
