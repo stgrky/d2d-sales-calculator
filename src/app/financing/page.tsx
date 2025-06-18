@@ -4,8 +4,8 @@ import { useState } from "react";
 import Head from "next/head";
 
 const FinancingPortal: React.FC = () => {
-  const [amount, setAmount] = useState<number>(0);
-  const [downPayment, setDownPayment] = useState<number>(0);
+  const [amount, setAmount] = useState<string>("");
+  const [downPayment, setDownPayment] = useState<string>("");
   const [planType, setPlanType] = useState<"45" | "180">("45");
   const [selectedTerm, setSelectedTerm] = useState<number>(120);
 
@@ -24,15 +24,12 @@ const FinancingPortal: React.FC = () => {
     },
   };
 
-  const effectiveAmount = Math.max(amount - downPayment, 0);
+  const parsedAmount = parseFloat(amount) || 0;
+  const parsedDownPayment = parseFloat(downPayment) || 0;
+  const effectiveAmount = Math.max(parsedAmount - parsedDownPayment, 0);
   const currentPlan = plans[planType][selectedTerm];
   const isWithinRange = currentPlan && effectiveAmount >= currentPlan.min && effectiveAmount <= currentPlan.max;
   const monthlyPayment = currentPlan ? effectiveAmount * currentPlan.paymentFactor : 0;
-  const handleNumericInput = (value: string) => {
-    const numeric = value.replace(/^0+(?=\d)/, "");
-    return parseFloat(numeric) || 0;
-  };  
-
 
   return (
     <>
@@ -44,17 +41,19 @@ const FinancingPortal: React.FC = () => {
 
         <label className="block mb-2 font-medium">Total Purchase Amount ($)</label>
         <input
-          type="number"
+          type="text"
+          inputMode="numeric"
           value={amount}
-          onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+          onChange={(e) => setAmount(e.target.value.replace(/^0+(?=\d)/, ""))}
           className="w-full p-2 border border-gray-300 rounded mb-4"
         />
 
         <label className="block mb-2 font-medium">Down Payment ($)</label>
         <input
-          type="number"
+          type="text"
+          inputMode="numeric"
           value={downPayment}
-          onChange={(e) => setDownPayment(parseFloat(e.target.value) || 0)}
+          onChange={(e) => setDownPayment(e.target.value.replace(/^0+(?=\d)/, ""))}
           className="w-full p-2 border border-gray-300 rounded mb-4"
         />
 
