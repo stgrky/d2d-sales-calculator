@@ -21,6 +21,7 @@ const HomePage: React.FC = () => {
   const [pump, setPump] = useState<string>("");
   const [connection, setConnection] = useState<string>("");
   const [trenchingType, setTrenchingType] = useState<string>("");  
+  const [trenchingSections, setTrenchingSections] = useState([{ type: "", distance: 0 }]);
   const [trenchDistance, setTrenchDistance] = useState<number>(0);
   const [panelUpgrade, setPanelUpgrade] = useState<string>("");
   const [total, setTotal] = useState<number>(0);
@@ -61,7 +62,7 @@ const HomePage: React.FC = () => {
 
   const cityDelivery: Record<string, number> = {
     "Austin": 999,
-    "Corpus Christi": 858,
+    "Corpus Christi": 858,  
     "Dallas": 577.5,
     "Houston": 200,
     "San Antonio": 660,
@@ -91,6 +92,8 @@ const HomePage: React.FC = () => {
     "": 0,
   };
 
+
+
   // Calculate total when "Calculate Total" button is clicked
   const calculateTotal = () => {
     let subtotal = 0;
@@ -111,6 +114,9 @@ const HomePage: React.FC = () => {
     if (connection === "t-valve") installTotal += 75;
     if (panelUpgrade === "panel") installTotal += 8000;
     if (panelUpgrade === "subpanel") installTotal += 3000;
+    trenchingSections.forEach(({ type, distance }) => {
+    installTotal += (trenchRates[type] || 0) * distance;
+    });
 
     subtotal += installTotal * 1; // No discount
 
@@ -234,7 +240,7 @@ const HomePage: React.FC = () => {
       addSectionHeader("Additional Services");
       doc.setFont(undefined, "bold");
       doc.text("Component", 25, y);
-      doc.text("Qty", 90, y);
+      doc.text("Qty", 100, y);
       doc.text("Description", 110, y);
       y += 7;
       doc.setFont(undefined, "normal");
@@ -242,22 +248,55 @@ const HomePage: React.FC = () => {
         addService("Unit Concrete Pad", "1", "Concrete base for main system");
       if (tankPad)
         addService("Tank Concrete Pad", "1", "Concrete base for tank support");
-      if (trenchingType && trenchDistance > 0)
-        addService(
-          `Trenching (${trenchingType})`,
-          `${trenchDistance} ft`,
-          "Underground piping trench"
-        );
+  
+      // Grouped Trenching Section (Single Description)
+      const trenchingLines = trenchingSections.filter(
+      (section) => section.type && section.distance > 0
+      );
+
+      if (trenchingLines.length > 0) {
+        const labelMap: Record<string, string> = {
+        dirt: "Dirt trenching",
+        rock: "Rock trenching",
+        limestone: "Limestone trenching",
+        elec_above_gr: "Electrical trenching (above ground)",
+        plumb_above_gr: "Plumbing trenching (above ground)",
+      };
+
+      const trenchDescription =
+      "Trenching for water/power/plumbing, above/below ground as selected";
+
+      const startY = y; // Save starting y-position for description
+
+      // Render each trenching line on the left/middle
+      trenchingLines.forEach(({ type, distance }) => {
+      doc.text(labelMap[type] || `Trenching (${type})`, 25, y);
+      doc.text(`${distance} ft`, 100, y);
+      y += 7;
+      });
+
+  // Render description aligned with the first line on the right
+  const wrappedLines = doc.splitTextToSize(trenchDescription, 80);
+  wrappedLines.forEach((line, i) => {
+    doc.text(line, 110, startY + i * 7); // keeps text aligned to original y
+  });
+
+  // Ensure y continues past both sections
+  y = Math.max(y, startY + wrappedLines.length * 7);
+      }
+
+
+
       if (connection === "t-valve")
-        addService("Connection Type", "1", "Manual 2-way T-valve install");
+        addService("Connection Type", "", "Manual 2-way T-valve install");
       if (panelUpgrade === "panel")
-        addService("Panel Upgrade", "1", "Electrical panel enhancement");
+        addService("Panel Upgrade", "", "Electrical panel enhancement");
       else if (panelUpgrade === "subpanel")
-        addService("Subpanel Upgrade", "1", "Electrical subpanel support");
+        addService("Subpanel Upgrade", "", "Electrical subpanel support");
 
       function addService(component: string, qty: string, description: string) {
         doc.text(component, 25, y);
-        doc.text(qty, 90, y);
+        doc.text(qty, 100, y);
         doc.text(description, 110, y);
         y += 7;
       }
@@ -459,28 +498,64 @@ const HomePage: React.FC = () => {
           </select>
         </fieldset>
 
-        <fieldset className="border border-gray-300 rounded bg-gray-50 mb-6 p-4">
-          <legend className="font-semibold px-2">Trenching</legend>
-          <select
-            id="trenchingType"
-            className="mt-2 mb-2 p-2 w-full border border-gray-300 rounded"
-            value={trenchingType}
-            onChange={(e) => setTrenchingType(e.target.value)}
-          >
-            <option value="">None</option>
-            <option value="dirt">Dirt</option>
-            <option value="rock">Rock</option>
-            <option value="limestone">Limestone</option>
-          </select>
-          <input
-            id="trenchDistance"
-            type="number"
-            placeholder="Distance in ft"
-            className="mt-2 mb-2 p-2 w-full border border-gray-300 rounded"
-            value={trenchDistance}
-            onChange={(e) => setTrenchDistance(parseFloat(e.target.value) || 0)}
-          />
-        </fieldset>
+<fieldset className="border border-gray-300 rounded bg-gray-50 mb-6 p-4">
+  <legend className="font-semibold px-2">Trenching Sections</legend>
+  {trenchingSections.map((section, index) => (
+    <div key={index} className="flex gap-2 mb-2 items-center">
+      <label className="text-sm text-gray-600">Material</label>
+      <select
+  className="border rounded p-2"
+  value={section.type}
+  onChange={(e) => {
+    const updated = [...trenchingSections];
+    updated[index].type = e.target.value;
+    setTrenchingSections(updated);
+  }}
+>
+  <option value="">Select</option>
+  <option value="dirt">Dirt</option>
+  <option value="rock">Rock</option>
+  <option value="limestone">Limestone</option>
+  <option value="elec_above_gr">Electrical (above ground)</option>
+  <option value="plumb_above_gr">Plumbing (above ground)</option>
+</select>
+
+
+      <label className="text-sm text-gray-600">Distance (ft)</label>
+      <input
+        type="number"
+        placeholder="Feet"
+        min="0"
+        className="border rounded p-2 w-24"
+        value={section.distance}
+        onChange={(e) => {
+          const updated = [...trenchingSections];
+          updated[index].distance = parseFloat(e.target.value) || 0;
+          setTrenchingSections(updated);
+        }}
+      />
+
+      <button
+        type="button"
+        className="text-red-500 text-lg"
+        onClick={() => {
+          const updated = trenchingSections.filter((_, i) => i !== index);
+          setTrenchingSections(updated);
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  ))}
+  <button
+    type="button"
+    className="text-sm text-blue-600 mt-2"
+    onClick={() => setTrenchingSections([...trenchingSections, { type: "", distance: 0 }])}
+  >
+    + Add Another Section
+  </button>
+</fieldset>
+
 
         <fieldset className="border border-gray-300 rounded bg-gray-50 mb-6 p-4">
           <legend className="font-semibold px-2">Add-ons</legend>
