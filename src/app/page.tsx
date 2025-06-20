@@ -22,9 +22,7 @@ const [filterQty, setFilterQty] = useState<number>(1);
 const [pump, setPump] = useState<string>("");
 const [pumpDist, setPumpDist] = useState<number>(0);
 const [connection, setConnection] = useState<string>("");
-const [trenchingType, setTrenchingType] = useState<string>("");  
 const [trenchingSections, setTrenchingSections] = useState([{ type: "", distance: 0 }]);
-const [trenchDistance, setTrenchDistance] = useState<number>(0);
 const [panelUpgrade, setPanelUpgrade] = useState<string>("");
 const [total, setTotal] = useState<number>(0);
 
@@ -103,7 +101,6 @@ const trenchRates: Record<string, number> = {
     // Installation-related components (to be potentially discounted)
     if (unitPad) installTotal += modelPrices[model]?.pad || 0;
     if (tankPad) installTotal += tankPads[tank] || 0;
-    installTotal += (trenchRates[trenchingType] || 0) * trenchDistance;
     if (connection === "t-valve") installTotal += 75;
     if (panelUpgrade === "panel") installTotal += 8000;
     if (panelUpgrade === "subpanel") installTotal += 3000;
