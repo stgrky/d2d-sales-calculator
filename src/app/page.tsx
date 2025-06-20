@@ -379,7 +379,7 @@ const trenchRates: Record<string, number> = {
               checked={mobility}
               onChange={(e) => setMobility(e.target.checked)}
             />
-            Include mobility assistance
+            Mobility assistance: unload unit off truck
           </label>
         </fieldset>
 
