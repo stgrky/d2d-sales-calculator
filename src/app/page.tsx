@@ -7,92 +7,85 @@ import Link from "next/link";
 
 
 const HomePage: React.FC = () => {
-  // State for form inputs
-  const [model, setModel] = useState<string>("");
-  const [unitOnly, setUnitOnly] = useState<boolean>(false);
-  const [unitPad, setUnitPad] = useState<boolean>(false);
-  const [mobility, setMobility] = useState<boolean>(false);
-  const [tank, setTank] = useState<string>("");
-  const [tankPad, setTankPad] = useState<boolean>(false);
-  const [city, setCity] = useState<string>("");
-  const [sensor, setSensor] = useState<string>("");
-  const [filter, setFilter] = useState<string>("");
-  const [filterQty, setFilterQty] = useState<number>(1);
-  const [pump, setPump] = useState<string>("");
-  const [connection, setConnection] = useState<string>("");
-  const [trenchingType, setTrenchingType] = useState<string>("");  
-  const [trenchingSections, setTrenchingSections] = useState([{ type: "", distance: 0 }]);
-  const [trenchDistance, setTrenchDistance] = useState<number>(0);
-  const [panelUpgrade, setPanelUpgrade] = useState<string>("");
-  const [total, setTotal] = useState<number>(0);
+  
+// State for form inputs
+const [model, setModel] = useState<string>("");
+const [unitOnly, setUnitOnly] = useState<boolean>(false);
+const [unitPad, setUnitPad] = useState<boolean>(false);
+const [mobility, setMobility] = useState<boolean>(false);
+const [tank, setTank] = useState<string>("");
+const [tankPad, setTankPad] = useState<boolean>(false);
+const [city, setCity] = useState<string>("");
+const [sensor, setSensor] = useState<string>("");
+const [filter, setFilter] = useState<string>("");
+const [filterQty, setFilterQty] = useState<number>(1);
+const [pump, setPump] = useState<string>("");
+const [pumpDist, setPumpDist] = useState<number>(0);
+const [connection, setConnection] = useState<string>("");
+const [trenchingType, setTrenchingType] = useState<string>("");  
+const [trenchingSections, setTrenchingSections] = useState([{ type: "", distance: 0 }]);
+const [trenchDistance, setTrenchDistance] = useState<number>(0);
+const [panelUpgrade, setPanelUpgrade] = useState<string>("");
+const [total, setTotal] = useState<number>(0);
 
-  // Price lookup
-  const modelPrices: Record<
-    string,
-    {
-      system: number;
-      install: number;
-      ship: number;
-      pad: number;
-      mobility: number;
-    }
-  > = {
-    s: { system: 9999, install: 0, ship: 645, pad: 2750, mobility: 500 },
-    standard: {
-      system: 17499,
-      install: 0,
-      ship: 1095,
-      pad: 3250,
-      mobility: 500,
-    },
-    x: { system: 29999, install: 0, ship: 1550, pad: 4550, mobility: 1000 },
-  };
+// Price lookup
+const modelPrices: Record<
+  string,
+  {
+    system: number;
+    install: number;
+    ship: number;
+    pad: number;
+    mobility: number;
+  }
+> = {
+  s: { system: 9999, install: 0, ship: 645, pad: 2750, mobility: 500 },
+  standard: {system: 17499, install: 0, ship: 1095, pad: 3250, mobility: 500,},
+  x: { system: 29999, install: 0, ship: 1550, pad: 4550, mobility: 1000 },
+};
 
-  const tankPrices: Record<string, number> = {
-    "500": 770.9,
-    "1550": 1430.35,
-    "3000": 2428.9,
-  };
+const tankPrices: Record<string, number> = {
+  "500": 770.9,
+  "1550": 1430.35,
+  "3000": 2428.9,
+};
 
-  const tankPads: Record<string, number> = {
-    "500": 1850,
-    "1550": 2250,
-    "3000": 2550,
-  };
+const tankPads: Record<string, number> = {
+  "500": 1850,
+  "1550": 2250,
+  "3000": 2550,
+};
 
-  const cityDelivery: Record<string, number> = {
-    "Austin": 999,
-    "Corpus Christi": 858,  
-    "Dallas": 577.5,
-    "Houston": 200,
-    "San Antonio": 660,
-  };
+const cityDelivery: Record<string, number> = {
+  "Austin": 999,
+  "Corpus Christi": 858,  
+  "Dallas": 577.5,
+  "Houston": 200,
+  "San Antonio": 660,
+};
 
-  const sensorPrices: Record<string, number> = {
+const sensorPrices: Record<string, number> = {
    "": 0,
    normal: 35,
-  };
+};
 
+const filterPrices: Record<string, number> = {
+  // Last updated 06/17
+  s: 100,
+  standard: 150,
+  x: 200,
+};
 
-  const filterPrices: Record<string, number> = {
-    // Last updated 06/17
-    s: 100,
-    standard: 150,
-    x: 200,
-  };
+const pumpPrices: Record<string, number> = { dab: 1900, mini: 800, "": 0 };
 
-  const pumpPrices: Record<string, number> = { dab: 1900, mini: 800, "": 0 };
-
-  const trenchRates: Record<string, number> = {
-    dirt: 54.5,
-    rock: 59.5,
-    limestone: 61.5,
-    elec_above_gr: 35.5,
-    plumb_above_gr: 26.5,
-    "": 0,
-  };
-
-
+const trenchRates: Record<string, number> = {
+  dirt: 54.5,
+  rock: 59.5,
+  limestone: 61.5,
+  elec_above_gr: 35.5,
+  plumb_above_gr: 26.5,
+  "": 0,
+};
 
   // Calculate total when "Calculate Total" button is clicked
   const calculateTotal = () => {
@@ -102,9 +95,9 @@ const HomePage: React.FC = () => {
 
     if (model) {
       subtotal += modelPrices[model].system;
-      if (!unitOnly) subtotal += modelPrices[model].install;
+    if (!unitOnly) subtotal += modelPrices[model].install;
       subtotal += modelPrices[model].ship;
-      if (mobility) subtotal += modelPrices[model].mobility;
+    if (mobility) subtotal += modelPrices[model].mobility;
     }
 
     // Installation-related components (to be potentially discounted)
@@ -144,11 +137,10 @@ const HomePage: React.FC = () => {
 
     // Pump
     if (pump) {
-      const pCost = pumpPrices[pump] || 0;
+      const pCost = (pumpPrices[pump] || 0) + Math.ceil((pumpDist/20))*120;
       subtotal += pCost;
       taxable += pCost;
     }
-    
 
     subtotal += 500; // Admin fee
 
@@ -159,7 +151,7 @@ const HomePage: React.FC = () => {
     setTotal(parseFloat(grandTotal.toFixed(2)));
   };
 
-  // Download PDF using jsPDF
+// Download PDF using jsPDF
   const downloadPDF = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const jsPDF = (window as any).jspdf?.jsPDF;
@@ -463,10 +455,10 @@ const HomePage: React.FC = () => {
             <input
               id="filterQty"
               type="number"
-              min="1"
+              min="0"
               className="p-2 border border-gray-300 rounded w-16"
               value={filterQty}
-              onChange={(e) => setFilterQty(parseInt(e.target.value) || 1)}
+              onChange={(e) => setFilterQty(parseInt(e.target.value) || 0)}
             />
             <span className="ml-2">Qty</span>
           </div>
@@ -483,6 +475,17 @@ const HomePage: React.FC = () => {
             <option value="">None</option>
             <option value="mini">DAB Mini</option>
           </select>
+          <div className="flex items-center mt-2">
+            <input
+              id="pumpDist"
+              type="number"
+              min="0"
+              className="p-2 border border-gray-300 rounded w-16"
+              value={pumpDist}
+              onChange={(e) => setPumpDist(parseInt(e.target.value) || 0)}
+            />
+            <span className="ml-2">Distance (ft)</span>
+          </div>
         </fieldset>
 
         <fieldset className="border border-gray-300 rounded bg-gray-50 mb-6 p-4">
