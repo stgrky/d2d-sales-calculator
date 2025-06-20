@@ -268,10 +268,20 @@ const trenchRates: Record<string, number> = {
       });
 
   // Render description aligned with the first line on the right
-  const wrappedLines = doc.splitTextToSize(trenchDescription, 80);
-  wrappedLines.forEach((line, i) => {
-    doc.text(line, 110, startY + i * 7); // keeps text aligned to original y
-  });
+ let wrappedLines: string[] = [];
+
+try {
+  const result = doc.splitTextToSize(trenchDescription || "", 80);
+  wrappedLines = Array.isArray(result) ? result : [String(result)];
+} catch (err) {
+  console.error("Error wrapping trench description:", err);
+  wrappedLines = [String(trenchDescription || "")];
+}
+
+wrappedLines.forEach((line: string, i: number) => {
+  doc.text(line, 110, startY + i * 7);
+});
+
 
   // Ensure y continues past both sections
   y = Math.max(y, startY + wrappedLines.length * 7);
