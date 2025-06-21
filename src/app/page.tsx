@@ -511,51 +511,61 @@ wrappedLines.forEach((line: string, i: number) => {
 <fieldset className="border border-gray-300 rounded bg-gray-50 mb-6 p-4">
   <legend className="font-semibold px-2">Trenching Sections</legend>
   {trenchingSections.map((section, index) => (
-    <div key={index} className="flex gap-2 mb-2 items-center">
-      <label className="text-sm text-gray-600">Material</label>
-      <select
-  className="border rounded p-2"
-  value={section.type}
-  onChange={(e) => {
-    const updated = [...trenchingSections];
-    updated[index].type = e.target.value;
-    setTrenchingSections(updated);
-  }}
+  <div
+  key={index}
+  className="w-full flex flex-wrap md:flex-nowrap items-start gap-4 p-4 border border-gray-300 rounded-md bg-white"
 >
-  <option value="">Select</option>
-  <option value="dirt">Dirt</option>
-  <option value="rock">Rock</option>
-  <option value="limestone">Limestone</option>
-  <option value="elec_above_gr">Electrical (above ground)</option>
-  <option value="plumb_above_gr">Plumbing (above ground)</option>
-</select>
+  {/* Material */}
+  <div className="flex flex-col flex-1 min-w-[140px]">
+    <label className="text-sm font-medium text-gray-600 mb-1">Material</label>
+    <select
+      className="border border-gray-300 rounded px-2 py-1"
+      value={section.type}
+      onChange={(e) => {
+        const updated = [...trenchingSections];
+        updated[index].type = e.target.value;
+        setTrenchingSections(updated);
+      }}
+    >
+      <option value="">Select</option>
+      <option value="dirt">Dirt</option>
+      <option value="rock">Rock</option>
+      <option value="limestone">Limestone</option>
+      <option value="elec_above_gr">Electrical (above ground)</option>
+      <option value="plumb_above_gr">Plumbing (above ground)</option>
+    </select>
+  </div>
+
+  {/* Distance */}
+  <div className="flex flex-col flex-1 min-w-[140px]">
+    <label className="text-sm font-medium text-gray-600 mb-1">Distance (ft)</label>
+    <input
+      type="number"
+      min="0"
+      className="border border-gray-300 rounded px-2 py-1"
+      value={section.distance}
+      onChange={(e) => {
+        const updated = [...trenchingSections];
+        updated[index].distance = parseFloat(e.target.value) || 0;
+        setTrenchingSections(updated);
+      }}
+    />
+  </div>
+
+  {/* Remove Button */}
+  <button
+    type="button"
+    className="text-red-500 text-xl px-2 mt-6 md:mt-0"
+    onClick={() => {
+      const updated = trenchingSections.filter((_, i) => i !== index);
+      setTrenchingSections(updated);
+    }}
+  >
+    ✕
+  </button>
+</div>
 
 
-      <label className="text-sm text-gray-600">Distance (ft)</label>
-      <input
-        type="number"
-        placeholder="Feet"
-        min="0"
-        className="border rounded p-2 w-24"
-        value={section.distance}
-        onChange={(e) => {
-          const updated = [...trenchingSections];
-          updated[index].distance = parseFloat(e.target.value) || 0;
-          setTrenchingSections(updated);
-        }}
-      />
-
-      <button
-        type="button"
-        className="text-red-500 text-lg"
-        onClick={() => {
-          const updated = trenchingSections.filter((_, i) => i !== index);
-          setTrenchingSections(updated);
-        }}
-      >
-        ✕
-      </button>
-    </div>
   ))}
   <button
     type="button"
