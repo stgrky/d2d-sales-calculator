@@ -1,14 +1,15 @@
 "use client";
 
 // pages/index.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
-import Link from "next/link";
+import FinancingCalculator from '@/components/FinancingCalculator'; // adjust path if needed
 
 
 const HomePage: React.FC = () => {
-  
-// State for form inputs
+
+
+// State hooks first
 const [model, setModel] = useState<string>("");
 const [unitOnly, setUnitOnly] = useState<boolean>(false);
 const [unitPad, setUnitPad] = useState<boolean>(false);
@@ -25,6 +26,30 @@ const [connection, setConnection] = useState<string>("");
 const [trenchingSections, setTrenchingSections] = useState([{ type: "", distance: 0 }]);
 const [panelUpgrade, setPanelUpgrade] = useState<string>("");
 const [total, setTotal] = useState<number>(0);
+const [showFinancing, setShowFinancing] = useState(false);
+const financingRef = useRef<HTMLDivElement>(null);
+
+// eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => {
+  calculateTotal();
+}, [
+  model,
+  unitOnly,
+  unitPad,
+  mobility,
+  tank,
+  tankPad,
+  city,
+  sensor,
+  filter,
+  filterQty,
+  pump,
+  pumpDist,
+  connection,
+  trenchingSections,
+  panelUpgrade
+]);
+
 
 // Price lookup
 const modelPrices: Record<
@@ -87,66 +112,95 @@ const trenchRates: Record<string, number> = {
 
   // Calculate total when "Calculate Total" button is clicked
   const calculateTotal = () => {
-    let subtotal = 0;
-    let taxable = 0;
-    let installTotal = 0;
+  let subtotal = 0;
+  let taxable = 0;
+  let installTotal = 0;
+  let hasSelections = false;
 
-    if (model) {
-      subtotal += modelPrices[model].system;
+  // Model system + shipping + install
+  if (model) {
+    subtotal += modelPrices[model].system;
+    subtotal += modelPrices[model].ship;
     if (!unitOnly) subtotal += modelPrices[model].install;
-      subtotal += modelPrices[model].ship;
     if (mobility) subtotal += modelPrices[model].mobility;
-    }
+    hasSelections = true;
+  }
 
-    // Installation-related components (to be potentially discounted)
-    if (unitPad) installTotal += modelPrices[model]?.pad || 0;
-    if (tankPad) installTotal += tankPads[tank] || 0;
-    if (connection === "t-valve") installTotal += 75;
-    if (panelUpgrade === "panel") installTotal += 8000;
-    if (panelUpgrade === "subpanel") installTotal += 3000;
-    trenchingSections.forEach(({ type, distance }) => {
-    installTotal += (trenchRates[type] || 0) * distance;
-    });
+  // Install items
+  if (unitPad) {
+    installTotal += modelPrices[model]?.pad || 0;
+    hasSelections = true;
+  }
+  if (tankPad) {
+    installTotal += tankPads[tank] || 0;
+    hasSelections = true;
+  }
+  if (connection === "t-valve") {
+    installTotal += 75;
+    hasSelections = true;
+  }
+  if (panelUpgrade === "panel") {
+    installTotal += 8000;
+    hasSelections = true;
+  }
+  if (panelUpgrade === "subpanel") {
+    installTotal += 3000;
+    hasSelections = true;
+  }
+  trenchingSections.forEach(({ type, distance }) => {
+    const rate = trenchRates[type] || 0;
+    const cost = rate * distance;
+    if (cost > 0) hasSelections = true;
+    installTotal += cost;
+  });
 
-    subtotal += installTotal * 1; // No discount
+  subtotal += installTotal;
 
-    // Tank base + delivery (not discounted)
-    if (tank) {
-      const tCost = tankPrices[tank] || 0;
-      subtotal += tCost;
-      taxable += tCost;
-      if (city && cityDelivery[city]) subtotal += cityDelivery[city];
-    }
+  // Tank
+  if (tank) {
+    const tCost = tankPrices[tank] || 0;
+    subtotal += tCost;
+    taxable += tCost;
+    if (city && cityDelivery[city]) subtotal += cityDelivery[city];
+    hasSelections = true;
+  }
 
-    // Tank sensor
-    if (sensor) {
-      const sCost = sensorPrices[sensor] || 0;
-      subtotal += sCost;
-      taxable += sCost;
-    }
+  // Sensor
+  if (sensor) {
+    const sCost = sensorPrices[sensor] || 0;
+    if (sCost > 0) hasSelections = true;
+    subtotal += sCost;
+    taxable += sCost;
+  }
 
-    // Filters
-    if (filter) {
-      const fCost = (filterPrices[filter] || 0) * filterQty;
-      subtotal += fCost;
-      taxable += fCost;
-    }
+  // Filter
+  if (filter && filterQty > 0) {
+    const fCost = (filterPrices[filter] || 0) * filterQty;
+    subtotal += fCost;
+    taxable += fCost;
+    hasSelections = true;
+  }
 
-    // Pump
-    if (pump) {
-      const pCost = (pumpPrices[pump] || 0) + Math.ceil((pumpDist/20))*120;
-      subtotal += pCost;
-      taxable += pCost;
-    }
+  // Pump
+  if (pump) {
+    const pCost = (pumpPrices[pump] || 0) + Math.ceil((pumpDist / 20)) * 120;
+    if (pCost > 0) hasSelections = true;
+    subtotal += pCost;
+    taxable += pCost;
+  }
 
-    subtotal += 500; // Admin fee
+  //Admin fee: only if something selected
+  if (hasSelections) {
+    subtotal += 500;
+  }
 
-    const taxRate = 0.0825;
-    const tax = taxable * taxRate;
-    const grandTotal = subtotal + tax;
+  const taxRate = 0.0825;
+  const tax = taxable * taxRate;
+  const grandTotal = subtotal + tax;
 
-    setTotal(parseFloat(grandTotal.toFixed(2)));
-  };
+  setTotal(parseFloat(grandTotal.toFixed(2)));
+};
+
 
 // Download PDF using jsPDF
   const downloadPDF = () => {
@@ -596,21 +650,42 @@ wrappedLines.forEach((line: string, i: number) => {
         </p>
         <button
           className="block w-full py-3 mt-4 text-lg bg-blue-600 text-white rounded hover:bg-blue-700"
-          onClick={calculateTotal}
-        >
-          Calculate Total
-        </button>
-        <button
-          className="block w-full py-3 mt-4 text-lg bg-blue-600 text-white rounded hover:bg-blue-700"
           onClick={downloadPDF}
         >
           Download Quote PDF
         </button>
-        <Link href="/financing">
-   <div className="block w-full py-3 mt-4 text-lg bg-gray-600 text-white rounded text-center hover:bg-gray-700 cursor-pointer">
-    See Financing Options
-  </div>
-</Link>
+   <button
+  onClick={() => {
+    setShowFinancing((prev) => {
+      const next = !prev;
+      if (next) {
+        setTimeout(() => {
+          financingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100); // delay to ensure rendering completes
+      }
+      return next;
+    });
+  }}
+  className="block w-full py-3 mt-4 text-lg bg-gray-600 text-white rounded text-center hover:bg-gray-700"
+>
+  {showFinancing ? "Hide Financing Calculator" : "See Financing Options"}
+</button>
+
+
+<div
+  ref={financingRef}
+  className={`transition-all duration-500 ease-in-out transform ${
+    showFinancing
+      ? 'opacity-100 translate-y-0 max-h-[1000px] mb-4'
+      : 'opacity-0 -translate-y-4 max-h-0 overflow-hidden'
+  }`}
+>
+  {showFinancing && <FinancingCalculator totalAmount={total} />}
+</div>
+
+
+
+
 
       </div>
     </>
