@@ -11,7 +11,6 @@ const HomePage: React.FC = () => {
 
 // State hooks first
 const [model, setModel] = useState<string>("");
-const [unitOnly, setUnitOnly] = useState<boolean>(false);
 const [unitPad, setUnitPad] = useState<boolean>(false);
 const [mobility, setMobility] = useState<boolean>(false);
 const [tank, setTank] = useState<string>("");
@@ -34,7 +33,6 @@ useEffect(() => {
   calculateTotal();
 }, [
   model,
-  unitOnly,
   unitPad,
   mobility,
   tank,
@@ -121,7 +119,6 @@ const trenchRates: Record<string, number> = {
   if (model) {
     subtotal += modelPrices[model].system;
     subtotal += modelPrices[model].ship;
-    if (!unitOnly) subtotal += modelPrices[model].install;
     if (mobility) subtotal += modelPrices[model].mobility;
     hasSelections = true;
   }
