@@ -19,7 +19,7 @@ const [tankPad, setTankPad] = useState<boolean>(false);
 const [city, setCity] = useState<string>("");
 const [sensor, setSensor] = useState<string>("");
 const [filter, setFilter] = useState<string>("");
-const [filterQty, setFilterQty] = useState<number>(1);
+const [filterQty, setFilterQty] = useState<number>(0);
 const [pump, setPump] = useState<string>("");
 const [pumpDist, setPumpDist] = useState<number>(0);
 const [connection, setConnection] = useState<string>("");
@@ -412,16 +412,8 @@ wrappedLines.forEach((line: string, i: number) => {
             <option value="standard">Hydropack</option>
             <option value="x">Hydropack X</option>
           </select>
-          <label className="flex items-center mt-2">
-            <input
-              id="unitOnly"
-              type="checkbox"
-              className="mr-2"
-              checked={unitOnly}
-              onChange={(e) => setUnitOnly(e.target.checked)}
-            />
-            Unit purchase only
-          </label>
+
+        
           <label className="flex items-center mt-2">
             <input
               id="unitPad"
