@@ -97,7 +97,11 @@ const filterPrices: Record<string, number> = {
   x: 200,
 };
 
-const pumpPrices: Record<string, number> = { dab: 1900, mini: 800, "": 0 };
+const pumpPrices: Record<string, number> = { 
+  dab: 1900, 
+  mini: 800, 
+  "": 0 
+};
 
 const trenchRates: Record<string, number> = {
   dirt: 54.5,
@@ -105,15 +109,20 @@ const trenchRates: Record<string, number> = {
   limestone: 61.5,
   elec_above_gr: 35.5,
   plumb_above_gr: 26.5,
+  comb_above_gr: 35.5,
   "": 0,
 };
 
-  // Calculate total when "Calculate Total" button is clicked
-  const calculateTotal = () => {
+const calculateTotal = () => {
+  const ADM = 500;
+  const COMM = 2500;
+  const AQM = 500;
+
   let subtotal = 0;
   let taxable = 0;
   let installTotal = 0;
   let hasSelections = false;
+  let hasInstallOptions = false;
 
   // Model system + shipping + install
   if (model) {
@@ -127,27 +136,35 @@ const trenchRates: Record<string, number> = {
   if (unitPad) {
     installTotal += modelPrices[model]?.pad || 0;
     hasSelections = true;
+    hasInstallOptions = true;
   }
   if (tankPad) {
     installTotal += tankPads[tank] || 0;
     hasSelections = true;
+    hasInstallOptions = true;
   }
   if (connection === "t-valve") {
     installTotal += 75;
     hasSelections = true;
+    hasInstallOptions = true;
   }
   if (panelUpgrade === "panel") {
     installTotal += 8000;
     hasSelections = true;
+    hasInstallOptions = true;
   }
   if (panelUpgrade === "subpanel") {
     installTotal += 3000;
     hasSelections = true;
+    hasInstallOptions = true;
   }
   trenchingSections.forEach(({ type, distance }) => {
     const rate = trenchRates[type] || 0;
     const cost = rate * distance;
-    if (cost > 0) hasSelections = true;
+    if (cost > 0) {
+      hasSelections = true;
+      hasInstallOptions = true;
+    }
     installTotal += cost;
   });
 
@@ -184,11 +201,18 @@ const trenchRates: Record<string, number> = {
     if (pCost > 0) hasSelections = true;
     subtotal += pCost;
     taxable += pCost;
+    // hasInstallOptions = true;
+    // Add an "own install option?"
   }
 
-  //Admin fee: only if something selected
+  // Admin fee (if anything selected)
   if (hasSelections) {
-    subtotal += 500;
+    subtotal += ADM;
+  }
+
+  // Comm + AQM (if install-related options selected)
+  if (hasInstallOptions) {
+    subtotal += COMM + AQM;
   }
 
   const taxRate = 0.0825;
@@ -197,6 +221,9 @@ const trenchRates: Record<string, number> = {
 
   setTotal(parseFloat(grandTotal.toFixed(2)));
 };
+
+
+
 
 
 // Download PDF using jsPDF
@@ -301,6 +328,7 @@ const trenchRates: Record<string, number> = {
         limestone: "Limestone trenching",
         elec_above_gr: "Electrical trenching (above ground)",
         plumb_above_gr: "Plumbing trenching (above ground)",
+        comb_above_gr: "Combined trenching (above ground)",  
       };
 
       const trenchDescription =
@@ -334,8 +362,6 @@ wrappedLines.forEach((line: string, i: number) => {
   // Ensure y continues past both sections
   y = Math.max(y, startY + wrappedLines.length * 7);
       }
-
-
 
       if (connection === "t-valve")
         addService("Connection Type", "", "Manual 2-way T-valve install");
@@ -576,6 +602,7 @@ wrappedLines.forEach((line: string, i: number) => {
       <option value="limestone">Limestone</option>
       <option value="elec_above_gr">Electrical (above ground)</option>
       <option value="plumb_above_gr">Plumbing (above ground)</option>
+      <option value="comb_above_gr">Combined (above ground)</option>
     </select>
   </div>
 
