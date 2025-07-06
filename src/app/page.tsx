@@ -24,29 +24,33 @@ const [pumpDist, setPumpDist] = useState<number>(0);
 const [connection, setConnection] = useState<string>("");
 const [trenchingSections, setTrenchingSections] = useState([{ type: "", distance: 0 }]);
 const [panelUpgrade, setPanelUpgrade] = useState<string>("");
-const [total, setTotal] = useState<number>(0);
+const [warranty, setWarranty] = useState<string>("standard");
+const [quoteTotal, setQuoteTotal] = useState<number | null>(null); // shown only after clicking
+const [total, setTotal] = useState<number>(0); // always stores current total
 const [showFinancing, setShowFinancing] = useState(false);
+const [quoteIsStale, setQuoteIsStale] = useState<boolean>(true);
 const financingRef = useRef<HTMLDivElement>(null);
 
 // eslint-disable-next-line react-hooks/exhaustive-deps
-useEffect(() => {
-  calculateTotal();
-}, [
-  model,
-  unitPad,
-  mobility,
-  tank,
-  tankPad,
-  city,
-  sensor,
-  filter,
-  filterQty,
-  pump,
-  pumpDist,
-  connection,
-  trenchingSections,
-  panelUpgrade
-]);
+// useEffect(() => {
+//   calculateTotal();
+// }, [
+//   model,
+//   unitPad,
+//   mobility,
+//   tank,
+//   tankPad,
+//   city,
+//   sensor,
+//   filter,
+//   filterQty,
+//   pump,
+//   pumpDist,
+//   connection,
+//   trenchingSections,
+//   panelUpgrade,
+//   warranty,
+// ]);
 
 
 // Price lookup
@@ -58,23 +62,31 @@ const modelPrices: Record<
     ship: number;
     pad: number;
     mobility: number;
+    warrantys: number;
+    warranty5: number;
+    warranty8: number;
   }
 > = {
-  s: { system: 9999, install: 0, ship: 645, pad: 2750, mobility: 500 },
-  standard: {system: 17499, install: 0, ship: 1095, pad: 3250, mobility: 500,},
-  x: { system: 29999, install: 0, ship: 1550, pad: 4550, mobility: 1000 },
+  // Prices updated as of 07/04
+  s: { system: 9999, install: 0, ship: 645, pad: 1750, mobility: 500, warrantys:0, warranty5: 999, warranty8: 1499},
+  standard: {system: 17499, install: 0, ship: 1095, pad: 1850, mobility: 500, warrantys:0, warranty5: 1749, warranty8: 2599},
+  x: { system: 29999, install: 0, ship: 1550, pad: 2100, mobility: 1000, warrantys:0, warranty5: 2999, warranty8: 4499},
 };
 
 const tankPrices: Record<string, number> = {
+  // Prices updated as of 07/04
   "500": 770.9,
   "1550": 1430.35,
   "3000": 2428.9,
+  "5000": 5125.99,
 };
 
 const tankPads: Record<string, number> = {
-  "500": 1850,
-  "1550": 2250,
-  "3000": 2550,
+  // Prices updated as of 07/04
+  "500": 1750,
+  "1550": 1850,
+  "3000": 2300,
+  "5000": 4200,
 };
 
 const cityDelivery: Record<string, number> = {
@@ -113,7 +125,7 @@ const trenchRates: Record<string, number> = {
   "": 0,
 };
 
-const calculateTotal = () => {
+const getTotal = () => {
   const ADM = 500;
   const COMM = 2500;
   const AQM = 500;
@@ -168,8 +180,6 @@ const calculateTotal = () => {
     installTotal += cost;
   });
 
-  subtotal += installTotal;
-
   // Tank
   if (tank) {
     const tCost = tankPrices[tank] || 0;
@@ -197,13 +207,28 @@ const calculateTotal = () => {
 
   // Pump
   if (pump) {
-    const pCost = (pumpPrices[pump] || 0) + Math.ceil((pumpDist / 20)) * 120;
+    const pCost = (pumpPrices[pump] || 0);
     if (pCost > 0) hasSelections = true;
     subtotal += pCost;
     taxable += pCost;
-    // hasInstallOptions = true;
-    // Add an "own install option?"
   }
+
+  //Pump "wiring"
+  if (pump && pumpDist) {
+    const pDistCost = Math.ceil((pumpDist / 20)) * 120;
+    if (pDistCost > 0) hasInstallOptions = true;
+    installTotal += pDistCost; 
+    
+  }
+
+  // Warranty
+if (warranty && warranty !== "standard" && model) {
+  if (warranty === "warranty5" || warranty === "warranty8") {
+    const wCost = modelPrices[model]?.[warranty] || 0;
+    subtotal += wCost;
+    hasSelections = true;
+  }
+}
 
   // Admin fee (if anything selected)
   if (hasSelections) {
@@ -217,9 +242,16 @@ const calculateTotal = () => {
 
   const taxRate = 0.0825;
   const tax = taxable * taxRate;
-  const grandTotal = subtotal + tax;
+  const finalTotal = subtotal + installTotal + tax;
 
-  setTotal(parseFloat(grandTotal.toFixed(2)));
+  return finalTotal;
+};
+
+const calculateTotal = () => {
+  const final = getTotal();
+  setQuoteTotal(final);    // visible
+  setTotal(final);         // internal
+  setQuoteIsStale(false);  // manually refreshed
 };
 
 
@@ -228,6 +260,11 @@ const calculateTotal = () => {
 
 // Download PDF using jsPDF
   const downloadPDF = () => {
+    if (quoteTotal === null || quoteIsStale) {
+  alert("Please click 'Calculate Total' to generate an updated quote before downloading.");
+  return;
+}
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const jsPDF = (window as any).jspdf?.jsPDF;
 
@@ -377,6 +414,17 @@ wrappedLines.forEach((line: string, i: number) => {
         y += 7;
       }
 
+// Warranty
+  addSectionHeader("Warranty");
+  doc.setFont(undefined, "normal"); // <- This line resets the font weight
+if (warranty === "warranty5")
+  addService("5-Year Extended Warranty","","Extended protection for system");
+else if (warranty === "warranty8")
+  addService("8-Year Extended Warranty","", "Extended protection for system");
+else
+  addService("Standard Warranty", "", "Basic coverage included at no cost");
+
+
       // Admin Fee Section
       addSectionHeader("Admin & Processing Fee");
 
@@ -428,7 +476,11 @@ wrappedLines.forEach((line: string, i: number) => {
             id="model"
             className="mt-2 mb-2 p-2 w-full border border-gray-300 rounded"
             value={model}
-            onChange={(e) => setModel(e.target.value)}
+            onChange={(e) => {
+            setModel(e.target.value);
+            setQuoteIsStale(true);
+            setShowFinancing(false);
+        }}
           >
             <option value="">Select Model</option>
             <option value="s">Hydropack S</option>
@@ -443,7 +495,11 @@ wrappedLines.forEach((line: string, i: number) => {
               type="checkbox"
               className="mr-2"
               checked={unitPad}
-              onChange={(e) => setUnitPad(e.target.checked)}
+            onChange={(e) => {
+            setUnitPad(e.target.checked);
+            setQuoteIsStale(true);
+            setShowFinancing(false);
+                          }}
             />
             Include concrete pad for unit
           </label>
@@ -453,7 +509,11 @@ wrappedLines.forEach((line: string, i: number) => {
               type="checkbox"
               className="mr-2"
               checked={mobility}
-              onChange={(e) => setMobility(e.target.checked)}
+              onChange={(e) => {
+            setMobility(e.target.checked);
+            setQuoteIsStale(true);
+            setShowFinancing(false);
+                          }}
             />
             Mobility assistance: unload unit off truck
           </label>
@@ -465,20 +525,29 @@ wrappedLines.forEach((line: string, i: number) => {
             id="tank"
             className="mt-2 mb-2 p-2 w-full border border-gray-300 rounded"
             value={tank}
-            onChange={(e) => setTank(e.target.value)}
+            onChange={(e) => {
+            setTank(e.target.value);
+            setQuoteIsStale(true);
+            setShowFinancing(false);
+                          }}
           >
             <option value="">None</option>
             <option value="500">500 gallon</option>
             <option value="1550">1550 gallon</option>
             <option value="3000">3000 gallon</option>
+            <option value="5000">5000 gallon</option>
           </select>
           <label className="flex items-center mt-2">
             <input
-              id="tankPad"
-              type="checkbox"
-              className="mr-2"
-              checked={tankPad}
-              onChange={(e) => setTankPad(e.target.checked)}
+            id="tankPad"
+            type="checkbox"
+            className="mr-2"
+            checked={tankPad}
+            onChange={(e) => {
+            setTankPad(e.target.checked);
+            setQuoteIsStale(true);
+            setShowFinancing(false);
+                          }}
             />
             Include concrete pad for tank
           </label>
@@ -490,7 +559,11 @@ wrappedLines.forEach((line: string, i: number) => {
             id="city"
             className="mt-2 mb-2 p-2 w-full border border-gray-300 rounded"
             value={city}
-            onChange={(e) => setCity(e.target.value)}
+            onChange={(e) => {
+            setCity(e.target.value);
+            setQuoteIsStale(true);
+            setShowFinancing(false);
+                          }}
           >
             <option value="">Select City</option>
             <option value="Austin">Austin</option>
@@ -507,7 +580,12 @@ wrappedLines.forEach((line: string, i: number) => {
             id="sensor"
             className="mt-2 mb-2 p-2 w-full border border-gray-300 rounded"
             value={sensor}
-            onChange={(e) => setSensor(e.target.value)}
+            onChange={(e) => {
+            setSensor(e.target.value);
+            setQuoteIsStale(true);
+            setShowFinancing(false);
+                          }}
+            
           >
             <option value="">None</option>
             <option value="normal">Normal</option>
@@ -520,24 +598,33 @@ wrappedLines.forEach((line: string, i: number) => {
             id="filter"
             className="mt-2 mb-2 p-2 w-full border border-gray-300 rounded"
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={(e) => {
+            setFilter(e.target.value);
+            setQuoteIsStale(true);
+            setShowFinancing(false);
+                          }}
           >
             <option value="">None</option>
             <option value="s">Hydropack S</option>
             <option value="standard">Hydropack</option>
             <option value="x">Hydropack X</option>
           </select>
-          <div className="flex items-center mt-2">
-            <input
-              id="filterQty"
-              type="number"
-              min="0"
-              className="p-2 border border-gray-300 rounded w-16"
-              value={filterQty}
-              onChange={(e) => setFilterQty(parseInt(e.target.value) || 0)}
-            />
-            <span className="ml-2">Qty</span>
-          </div>
+         <div className="flex items-center mt-2">
+  <input
+    id="filterQty"
+    type="number"
+    min="0"
+    className="p-2 border border-gray-300 rounded w-16"
+    value={filterQty}
+    onChange={(e) => {
+      setFilterQty(parseInt(e.target.value) || 0);
+      setQuoteIsStale(true);
+      setShowFinancing(false);
+    }}
+  />
+  <span className="ml-2">Qty</span>
+</div>
+
         </fieldset>
 
         <fieldset className="border border-gray-300 rounded bg-gray-50 mb-6 p-4">
@@ -546,7 +633,11 @@ wrappedLines.forEach((line: string, i: number) => {
             id="pump"
             className="mt-2 mb-2 p-2 w-full border border-gray-300 rounded"
             value={pump}
-            onChange={(e) => setPump(e.target.value)}
+            onChange={(e) => {
+            setPump(e.target.value);
+            setQuoteIsStale(true);
+            setShowFinancing(false);
+                          }}
           >
             <option value="">None</option>
             <option value="mini">DAB Mini</option>
@@ -558,7 +649,11 @@ wrappedLines.forEach((line: string, i: number) => {
               min="0"
               className="p-2 border border-gray-300 rounded w-16"
               value={pumpDist}
-              onChange={(e) => setPumpDist(parseInt(e.target.value) || 0)}
+               onChange={(e) => {
+      setPumpDist(parseInt(e.target.value) || 0);
+      setQuoteIsStale(true);
+      setShowFinancing(false);
+    }}
             />
             <span className="ml-2">Distance (ft)</span>
           </div>
@@ -570,7 +665,11 @@ wrappedLines.forEach((line: string, i: number) => {
             id="connection"
             className="mt-2 mb-2 p-2 w-full border border-gray-300 rounded"
             value={connection}
-            onChange={(e) => setConnection(e.target.value)}
+            onChange={(e) => {
+            setConnection(e.target.value);
+            setQuoteIsStale(true);
+            setShowFinancing(false);
+                          }}
           >
             <option value="">None</option>
             <option value="t-valve">Manual 2-way T-valve</option>
@@ -588,14 +687,17 @@ wrappedLines.forEach((line: string, i: number) => {
   <div className="flex flex-col flex-1 min-w-[140px]">
     <label className="text-sm font-medium text-gray-600 mb-1">Material</label>
     <select
-      className="border border-gray-300 rounded px-2 py-1"
-      value={section.type}
-      onChange={(e) => {
-        const updated = [...trenchingSections];
-        updated[index].type = e.target.value;
-        setTrenchingSections(updated);
-      }}
-    >
+  className="border border-gray-300 rounded px-2 py-1"
+  value={section.type}
+  onChange={(e) => {
+    const updated = [...trenchingSections];
+    updated[index].type = e.target.value;
+    setTrenchingSections(updated);
+    setQuoteIsStale(true);
+    setShowFinancing(false);
+  }}
+>
+
       <option value="">Select</option>
       <option value="dirt">Dirt</option>
       <option value="rock">Rock</option>
@@ -610,29 +712,35 @@ wrappedLines.forEach((line: string, i: number) => {
   <div className="flex flex-col flex-1 min-w-[140px]">
     <label className="text-sm font-medium text-gray-600 mb-1">Distance (ft)</label>
     <input
-      type="number"
-      min="0"
-      className="border border-gray-300 rounded px-2 py-1"
-      value={section.distance}
-      onChange={(e) => {
-        const updated = [...trenchingSections];
-        updated[index].distance = parseFloat(e.target.value) || 0;
-        setTrenchingSections(updated);
-      }}
-    />
+  type="number"
+  min="0"
+  className="border border-gray-300 rounded px-2 py-1"
+  value={section.distance}
+  onChange={(e) => {
+    const updated = [...trenchingSections];
+    updated[index].distance = parseFloat(e.target.value) || 0;
+    setTrenchingSections(updated);
+    setQuoteIsStale(true);
+    setShowFinancing(false);
+  }}
+/>
+
   </div>
 
-  {/* Remove Button */}
-  <button
-    type="button"
-    className="text-red-500 text-xl px-2 mt-6 md:mt-0"
-    onClick={() => {
-      const updated = trenchingSections.filter((_, i) => i !== index);
-      setTrenchingSections(updated);
-    }}
-  >
-    ✕
-  </button>
+{/* Remove Button */}
+<button
+  type="button"
+  className="text-red-500 text-xl px-2 mt-6 md:mt-0"
+  onClick={() => {
+    const updated = trenchingSections.filter((_, i) => i !== index);
+    setTrenchingSections(updated);
+    setQuoteIsStale(true); // Mark quote as stale when a section is removed
+ setShowFinancing(false); 
+  }}
+>
+  ✕
+</button>
+
 </div>
 
 
@@ -647,41 +755,95 @@ wrappedLines.forEach((line: string, i: number) => {
 </fieldset>
 
 
-        <fieldset className="border border-gray-300 rounded bg-gray-50 mb-6 p-4">
-          <legend className="font-semibold px-2">Add-ons</legend>
-          <select
-            id="panelUpgrade"
-            className="mt-2 mb-2 p-2 w-full border border-gray-300 rounded"
-            value={panelUpgrade}
-            onChange={(e) => setPanelUpgrade(e.target.value)}
-          >
-            <option value="">None</option>
-            <option value="panel">Panel Upgrade</option>
-            <option value="subpanel">Subpanel Upgrade</option>
-          </select>
-        </fieldset>
+<fieldset className="border border-gray-300 rounded bg-gray-50 mb-6 p-4">
+  <legend className="font-semibold px-2">Add-ons</legend>
+  <select
+    id="panelUpgrade"
+    className="mt-2 mb-2 p-2 w-full border border-gray-300 rounded"
+    value={panelUpgrade}
+    onChange={(e) => {
+            setPanelUpgrade(e.target.value);
+            setQuoteIsStale(true);
+            setShowFinancing(false);
+          }}
+  >
+  <option value="">None</option>
+  <option value="panel">Panel Upgrade</option>
+  <option value="subpanel">Subpanel Upgrade</option>
+  </select>
+</fieldset>
 
-        <p className="text-center text-lg font-semibold">
-          Total: ${total.toFixed(2)}
-        </p>
-        <button
-          className="block w-full py-3 mt-4 text-lg bg-blue-600 text-white rounded hover:bg-blue-700"
-          onClick={downloadPDF}
-        >
-          Download Quote PDF
-        </button>
+<fieldset className="border border-gray-300 rounded bg-gray-50 mb-6 p-4">
+  <legend className="font-semibold px-2">Warranty Options</legend>
+  <select
+    id="WarrantyOptions"
+    className="mt-2 mb-2 p-2 w-full border border-gray-300 rounded"
+    value={warranty}
+    onChange={(e) => {
+            setWarranty(e.target.value);
+            setQuoteIsStale(true);
+            setShowFinancing(false);
+                          }}
+  >
+    <option value="standard">Standard (Included)</option>
+    <option value="warranty5">5-Year Extended Warranty</option>
+    <option value="warranty8">8-Year Extended Warranty</option>
+  </select>
+</fieldset>
+
+
+        
+
+{quoteTotal !== null && (
+  <p className="text-center text-lg font-semibold">
+    Total: ${quoteTotal.toFixed(2)}
+  </p>
+)}
+
+<button
+  className="block w-full py-3 mt-4 text-lg bg-green-600 text-white rounded hover:bg-green-700"
+  onClick={calculateTotal}
+>
+  {quoteIsStale ? "Calculate New Total" : "Calculate Total"}
+</button>
+
+
+<button
+  disabled={quoteTotal === null || quoteIsStale}
+  className={`block w-full py-3 mt-4 text-lg rounded text-white ${
+    quoteTotal === null || quoteIsStale
+      ? 'bg-gray-400 cursor-not-allowed'
+      : 'bg-blue-600 hover:bg-blue-700'
+  }`}
+  onClick={() => {
+    if (quoteTotal === null || quoteIsStale) {
+      alert("Please click 'Calculate Total' after making changes before downloading your quote.");
+      return;
+    }
+    downloadPDF();
+  }}
+>
+  Download Quote PDF
+</button>
+
    <button
   onClick={() => {
-    setShowFinancing((prev) => {
-      const next = !prev;
-      if (next) {
-        setTimeout(() => {
-          financingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100); // delay to ensure rendering completes
-      }
-      return next;
-    });
-  }}
+  if (quoteTotal === null || quoteIsStale) {
+    alert("Please click 'Calculate Total' before viewing financing options.");
+    return;
+  }
+
+  setShowFinancing((prev) => {
+    const next = !prev;
+    if (next) {
+      setTimeout(() => {
+        financingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+    return next;
+  });
+}}
+
   className="block w-full py-3 mt-4 text-lg bg-gray-600 text-white rounded text-center hover:bg-gray-700"
 >
   {showFinancing ? "Hide Financing Calculator" : "See Financing Options"}
