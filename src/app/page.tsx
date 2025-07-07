@@ -804,7 +804,7 @@ else
   className="block w-full py-3 mt-4 text-lg bg-green-600 text-white rounded hover:bg-green-700"
   onClick={calculateTotal}
 >
-  {quoteIsStale ? "Calculate New Total" : "Calculate Total"}
+  {quoteIsStale ? "Calculate Total" : "Calculate Total"}
 </button>
 
 
