@@ -1,26 +1,57 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: linear-gradient(to bottom, #B0C4CF, #3C4F59);
+  --foreground: #ffffff;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans, Inter, Arial, Helvetica, sans-serif);
+  --font-mono: var(--font-geist-mono, monospace);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #000000;
+    --background: linear-gradient(to bottom, #3C4F59, #1F2A30);
+    --foreground: #ffffff;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
+}
+
+input, select, textarea {
+  background-color: #ffffff; /* keep input boxes white */
+  color: #171717;            /* black/dark gray text */
+  font-family: inherit;
+}
+
+label {
+  color: #171717; /* ensure labels are black too */
+}
+
+fieldset legend,
+h1, h2, h3, h4, h5, h6,
+.label,
+.section-header {
+  color: #171717 !important; /* dark gray/black for headers */
+  font-weight: 600;          /* make them stand out */
+}
+
+select {
+  position: relative !important;
+  z-index: 9999 !important;
+  background: white;
+  border: 1px solid #d1d5db; /* matches Tailwind border-gray-300 */
+  border-radius: 6px;
+  padding: 0.5rem;
+  color: #111827; /* Tailwind gray-900 */
 }
