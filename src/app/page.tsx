@@ -706,7 +706,7 @@ else if (panelUpgrade === "subpanel") addService("Subpanel Upgrade", "", "Electr
           >
             <option value="">None</option>
             <option value="2way-t-valve">Manual 2-way T-valve</option>
-            <option value="3way-t-valve">Manual 3-way T-valve</option>
+            <option value="3way-t-valve">Automatic 3-way T-valve</option>
           </select>
         </fieldset>
 
