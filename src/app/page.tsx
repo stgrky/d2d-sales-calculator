@@ -464,7 +464,7 @@ ab_trenchingLines.forEach(({ type, distance }) => {
 });
 
 if (connection === "2way-t-valve") addService("Connection Type", "", "Manual 2-way T-valve install");
-if (connection === "3way-t-valve") addService("Connection Type", "", "Manual 3-way T-valve install");
+if (connection === "3way-t-valve") addService("Connection Type", "", "Automatic 3-way T-valve install");
 if (panelUpgrade === "panel") addService("Panel Upgrade", "", "Electrical panel enhancement");
 else if (panelUpgrade === "subpanel") addService("Subpanel Upgrade", "", "Electrical subpanel support");
 
