@@ -548,20 +548,26 @@ else if (panelUpgrade === "subpanel") addService("Subpanel Upgrade", "", "Electr
             />
             Include concrete pad for unit
           </label>
-          <label className="flex items-center mt-2">
+          <label className="flex flex-col mt-2">
+          <div className="flex items-center">
             <input
               id="mobility"
               type="checkbox"
               className="mr-2"
               checked={mobility}
               onChange={(e) => {
-            setMobility(e.target.checked);
-            setQuoteIsStale(true);
-            setShowFinancing(false);
-                          }}
+                setMobility(e.target.checked);
+                setQuoteIsStale(true);
+                setShowFinancing(false);
+              }}
             />
-            Mobility assistance: unload unit off truck
-          </label>
+            <span>Mobility assistance: unload unit off truck</span>
+          </div>
+          <p className="ml-6 mt-1 text-xs text-gray-600 italic">
+            All full installation projects performed by Aquaria require mobility assistance due to liability considerations. 
+            Mobility assistance is not required for unit-only purchases where Aquaria does not provide installation services.
+          </p>
+        </label>
         </fieldset>
 
         <fieldset className="border border-gray-300 rounded bg-gray-50 mb-6 p-4">
