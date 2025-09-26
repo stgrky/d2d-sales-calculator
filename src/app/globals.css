@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+@keyframes eggFlash {
+  0% { opacity: 0; transform: scale(0.98); }
+  10% { opacity: 1; transform: scale(1); }
+  90% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.animate-eggFlash {
+  animation: eggFlash 1.1s ease-in-out forwards;
+}
+
 :root {
   --background: linear-gradient(to bottom, #B0C4CF, #3C4F59);
   --foreground: #ffffff;

@@ -5,6 +5,10 @@ import { useState, useRef, useEffect } from "react";
 import './globals.css';
 import Head from "next/head";
 import FinancingCalculator from "@/components/FinancingCalculator"; // adjust path if needed
+import type { CustomAdjustment } from "@/components/CustomAdjustmentBox";
+import CustomAdjustmentsGroup from "@/components/CustomAdjustmentsGroup";
+import { checkEasterEgg, EasterEggOverlay } from "@/components/EasterEggs";
+
 
 const HomePage: React.FC = () => {
   // State hooks first
@@ -50,6 +54,24 @@ const HomePage: React.FC = () => {
     enabled: false,
     distance: 0,
   });
+const [customAdjs, setCustomAdjs] = useState<CustomAdjustment[]>([
+  { enabled: false, label: "", amount: 0, notes: "" },
+]);
+const markDirty = () => { setQuoteIsStale(true); setShowFinancing(false); };
+const [easterEggMsg, setEasterEggMsg] = useState<string | null>(null);
+const eggTimerRef = useRef<number | null>(null);
+
+useEffect(() => {
+  return () => {
+    if (eggTimerRef.current) window.clearTimeout(eggTimerRef.current);
+  };
+}, []);
+
+function showEgg(message: string, duration: number) {
+  setEasterEggMsg(message);
+  if (eggTimerRef.current) window.clearTimeout(eggTimerRef.current);
+  eggTimerRef.current = window.setTimeout(() => setEasterEggMsg(null), duration);
+}
 
   // Price lookup
   const modelPrices: Record<
@@ -301,8 +323,19 @@ if (demolition?.enabled && demolition?.distance > 0) {
   sensor,
   filter,
   filterQty,
-  demolition
+  demolition,
+  customAdjs
 });
+  
+const enabledCustoms = customAdjs.filter(
+  (c) => c.enabled && Number(c.amount) !== 0
+);
+if (enabledCustoms.length > 0) {
+  const customSum = enabledCustoms.reduce((sum, c) => sum + Number(c.amount || 0), 0);
+  subtotal += customSum;
+  hasSelections = true; // ensures admin fees apply when used
+}
+
 
   const taxRate = 0.0825;
   const tax = taxable * taxRate;
@@ -311,21 +344,29 @@ if (demolition?.enabled && demolition?.distance > 0) {
   return finalTotal;
 };
 
+
+
+
 const calculateTotal = () => {
+  // commit any focused input (amount box) that commits on blur
+  if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+
   const final = getTotal();
-  setQuoteTotal(final);    // visible
-  setTotal(final);         // internal
-  setQuoteIsStale(false);  // manually refreshed
+  setQuoteTotal(final);
+  setTotal(final);
+  setQuoteIsStale(false);
 };
 
 
-
 // Download PDF using jsPDF
-const downloadPDF = () => {
+const downloadPDF = async () => {
   if (quoteTotal === null || quoteIsStale) {
     alert("Please click 'Calculate Total' to generate an updated quote before downloading.");
     return;
   }
+
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const jsPDF = (window as any).jspdf?.jsPDF;
@@ -333,171 +374,238 @@ const downloadPDF = () => {
 
   const doc = new jsPDF("p", "mm", "a4");
   const date = new Date().toLocaleDateString("en-US");
-  const totalStr = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const totalStr = total.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
-  const logo = new Image();
-  logo.src = "https://raw.githubusercontent.com/KhalidMas23/Aquaria-Calculator/52de119ecbc4d4910952b0384c5092621f70e62d/AQ_TRANSPARENT_LOGO.png";
+  // --- helpers ---
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = 40; // start content below header
+  const leftX = 20;
 
-  logo.onload = () => {
-    const pageWidth = doc.internal.pageSize.getWidth();
+  function ensureSpace(needs: number) {
+    if (y + needs > pageHeight - 20) {
+      doc.addPage();
+      y = 20;
+    }
+  }
 
-    // --- Grey Header Bar ---
-    doc.setFillColor(243, 244, 246); // Tailwind gray-100
-    doc.rect(0, 0, pageWidth, 25, "F");
-
-    // Logo in header
-    const logoWidth = 35;
-    const aspectRatio = logo.width / logo.height;
-    const logoHeight = logoWidth / aspectRatio;
-    doc.addImage(logo, "PNG", 15, 5, logoWidth, logoHeight);
-
-    // Company Info Right
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(55, 65, 81); // Tailwind gray-700
-    const infoX = pageWidth - 80;
-    let infoY = 12;
-    doc.text("600 Congress Ave, Austin, TX 78701", infoX, infoY);
-    infoY += 6;
-    doc.text(`Quote Generated: ${date}`, infoX, infoY);
-
-    let y = 40; // start content below header
-
-    // --- Section Helpers ---
-    const addSectionHeader = (title: string) => {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.setTextColor(43, 103, 119); // Aquaria blue-green
-      doc.text(title, 20, y);
-      y += 3;
-
-      // full-width divider line
-      doc.setDrawColor(200);
-      doc.line(20, y, pageWidth - 20, y);
-      y += 8;
-
-      doc.setTextColor(0, 0, 0); // reset to black
-    };
-
-    const addLine = (label: string, value: string) => {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-      doc.text(`${label}:`, 25, y);
-      doc.text(value, 95, y);
-      y += 7;
-    };
-
-    const addService = (component: string, qty: string, description: string) => {
-      doc.setFontSize(11);
-      doc.text(component, 25, y);
-      doc.text(qty, 95, y);
-      doc.text(description, 120, y);
-      y += 7;
-    };
-
-    // MAIN PRODUCT
-    addSectionHeader("Main Product");
-    const modelText = model
-      ? (document.querySelector(`#model option[value='${model}']`) as HTMLOptionElement)?.textContent || "None"
-      : "None";
-    addLine("Hydropack Model", modelText);
-
-    // TANK
-    addSectionHeader("Tank Selection");
-    const tankText = tank
-      ? (document.querySelector(`#tank option[value='${tank}']`) as HTMLOptionElement)?.textContent || "None"
-      : "None";
-    addLine("Selected Tank", tankText);
-
-    // FILTERS
-    addSectionHeader("Additional Filters");
-    const filterText = filter
-      ? (document.querySelector(`#filter option[value='${filter}']`) as HTMLOptionElement)?.textContent || "None"
-      : "None";
-    addLine("Extra Filter(s)", `${filterText} x${filterQty}`);
-
-    // SHIPPING
-    addSectionHeader("Shipping/Handling");
-    addLine("Nearest City", city || "None");
-
-    // ADDITIONAL SERVICES
-    addSectionHeader("Additional Services");
+  const addSectionHeader = (title: string) => {
+    ensureSpace(20);
     doc.setFont("helvetica", "bold");
-    doc.text("Component", 25, y);
-    doc.text("Qty", 95, y);
-    doc.text("Description", 120, y);
-    y += 7;
-    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+    doc.setTextColor(43, 103, 119); // Aquaria blue-green
+    doc.text(title, leftX, y);
+    y += 3;
 
-    if (unitPad) addService("Unit Concrete Pad", "1", "Concrete base for main system");
-    if (tankPad) addService("Tank Concrete Pad", "1", "Concrete base for tank support");
+    doc.setDrawColor(200);
+    doc.line(leftX, y, pageWidth - leftX, y);
+    y += 8;
 
-    // trench label map
-const trenchLabels: Record<string, string> = {
-  trench_elec: "Trenching - Electrical",
-  trench_plumb: "Trenching - Plumbing",
-  trench_comb: "Trenching - Combined",
-};
-
-const ab_trenchLabels: Record<string, string> = {
-  ab_elec: "Above Ground - Electrical",
-  ab_plumb: "Above Ground - Plumbing",
-  ab_comb: "Above Ground - Combined",
-};
-
-const trenchingLines = trenchingSections.filter((section) => section.type && section.distance > 0);
-trenchingLines.forEach(({ type, distance }) => {
-  const label = trenchLabels[type] || type; // fallback to raw if not found
-  doc.text(label, 25, y);
-  doc.text(`${distance} ft`, 95, y);
-  doc.text("Trenching Services", 120, y);
-  y += 7;
-});
-
-const ab_trenchingLines = ab_trenchingSections.filter((section) => section.type && section.distance > 0);
-ab_trenchingLines.forEach(({ type, distance }) => {
-  const label = ab_trenchLabels[type] || type; // fallback to raw if not found
-  doc.text(label, 25, y);
-  doc.text(`${distance} ft`, 95, y);
-  doc.text("Trenching Services", 120, y);
-  y += 7;
-});
-
-if (connection === "2way-t-valve") addService("Connection Type", "", "Manual 2-way T-valve install");
-if (connection === "3way-t-valve") addService("Connection Type", "", "Automatic 3-way T-valve install");
-if (panelUpgrade === "panel") addService("Panel Upgrade", "", "Electrical panel enhancement");
-else if (panelUpgrade === "subpanel") addService("Subpanel Upgrade", "", "Electrical subpanel support");
-
-// WARRANTY
-    addSectionHeader("Warranty");
-    if (warranty === "warranty5") addService("5-Year Extended Warranty", "", "Extended protection for system");
-    else if (warranty === "warranty8") addService("8-Year Extended Warranty", "", "Extended protection for system");
-    else addService("Standard Warranty", "", "Basic coverage included at no cost");
-
-    // SALES TAX
-    addSectionHeader("8.25% Sales Tax");
-
-    // TOTAL
-    y += 10;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
     doc.setTextColor(0, 0, 0);
-    doc.text(`Total: $${totalStr}`, pageWidth - 20, y, { align: "right" });
-
-    // FOOTER
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(100);
-    doc.text(
-      "Thank you for your interest in Aquaria. This quote is valid for 30 days. Aquaria Atmospheric Water Generator units are exempt from sales tax.",
-      pageWidth / 2,
-      285,
-      { align: "center", maxWidth: pageWidth - 40 }
-    );
-
-    doc.save("Hydropack_Quote.pdf");
   };
+
+  const addLine = (label: string, value: string) => {
+    ensureSpace(10);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.text(`${label}:`, leftX + 5, y);
+    doc.text(value, 95, y, { maxWidth: pageWidth - 110 });
+    y += 7;
+  };
+
+  const addService = (component: string, qty: string, description: string) => {
+    ensureSpace(10);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.text(component, leftX + 5, y, { maxWidth: 65 });
+    doc.text(qty, 95, y);
+    doc.text(description, 120, y, { maxWidth: pageWidth - 140 });
+    y += 7;
+  };
+
+  const safeGetText = (sel: string) => {
+    const el = document.querySelector(sel) as HTMLOptionElement | null;
+    return (el?.textContent || "None").trim();
+  };
+
+  // --- Preload logo (recommend hosting in /public and using "/AQ_TRANSPARENT_LOGO.png") ---
+  const logoUrl =
+    "https://raw.githubusercontent.com/KhalidMas23/Aquaria-Calculator/52de119ecbc4d4910952b0384c5092621f70e62d/AQ_TRANSPARENT_LOGO.png";
+
+  const logo = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.crossOrigin = "anonymous";
+    img.src = logoUrl;
+  });
+
+  // --- Header Bar & Logo ---
+  doc.setFillColor(243, 244, 246); // Tailwind gray-100
+  doc.rect(0, 0, pageWidth, 25, "F");
+
+  const logoWidth = 35;
+  const aspectRatio = logo.width / logo.height;
+  const logoHeight = logoWidth / aspectRatio;
+  doc.addImage(logo, "PNG", 15, 5, logoWidth, logoHeight);
+
+  // Company Info Right
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(55, 65, 81); // Tailwind gray-700
+  const infoX = pageWidth - 80;
+  let infoY = 12;
+  doc.text("600 Congress Ave, Austin, TX 78701", infoX, infoY);
+  infoY += 6;
+  doc.text(`Quote Generated: ${date}`, infoX, infoY);
+
+  // --- Main Product ---
+  addSectionHeader("Main Product");
+  const modelText = model ? safeGetText(`#model option[value='${model}']`) : "None";
+  addLine("Hydropack Model", modelText);
+
+  // --- Tank Selection ---
+  addSectionHeader("Tank Selection");
+  const tankText = tank ? safeGetText(`#tank option[value='${tank}']`) : "None";
+  addLine("Selected Tank", tankText);
+
+  // --- Additional Filters ---
+  addSectionHeader("Additional Filters");
+  const filterText = filter ? safeGetText(`#filter option[value='${filter}']`) : "None";
+  addLine("Extra Filter(s)", `${filterText} x${filterQty}`);
+
+  // --- Shipping/Handling ---
+  addSectionHeader("Shipping/Handling");
+  addLine("Nearest City", city || "None");
+
+  // --- Additional Services ---
+  addSectionHeader("Additional Services");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text("Component", leftX + 5, y);
+  doc.text("Qty", 95, y);
+  doc.text("Description", 120, y);
+  y += 7;
+  doc.setFont("helvetica", "normal");
+
+  if (unitPad) addService("Unit Concrete Pad", "1", "Concrete base for main system");
+  if (tankPad) addService("Tank Concrete Pad", "1", "Concrete base for tank support");
+
+  // Trenching
+  const trenchLabels: Record<string, string> = {
+    trench_elec: "Trenching - Electrical",
+    trench_plumb: "Trenching - Plumbing",
+    trench_comb: "Trenching - Combined",
+  };
+  const ab_trenchLabels: Record<string, string> = {
+    ab_elec: "Above Ground - Electrical",
+    ab_plumb: "Above Ground - Plumbing",
+    ab_comb: "Above Ground - Combined",
+  };
+
+  const trenchingLines = trenchingSections.filter((s) => s.type && s.distance > 0);
+  trenchingLines.forEach(({ type, distance }) => {
+    const label = trenchLabels[type] || type;
+    addService(label, `${distance} ft`, "Trenching Services");
+  });
+
+  const ab_trenchingLines = ab_trenchingSections.filter((s) => s.type && s.distance > 0);
+  ab_trenchingLines.forEach(({ type, distance }) => {
+    const label = ab_trenchLabels[type] || type;
+    addService(label, `${distance} ft`, "Trenching Services");
+  });
+
+  // Connection Type (kept under Additional Services)
+  if (connection === "2way-t-valve") addService("Connection Type", "", "Manual 2-way T-valve install");
+  if (connection === "3way-t-valve") addService("Connection Type", "", "Automatic 3-way T-valve install");
+
+  // Panel/Subpanel
+  if (panelUpgrade === "panel") addService("Panel Upgrade", "", "Electrical panel enhancement");
+  else if (panelUpgrade === "subpanel") addService("Subpanel Upgrade", "", "Electrical subpanel support");
+
+// --- Custom Adjustments (PDF) ---
+const enabledCustoms = customAdjs.filter(
+  (c) => c.enabled && c.label.trim() !== "" && Number(c.amount) !== 0
+);
+
+if (enabledCustoms.length > 0) {
+  addSectionHeader("Custom Adjustments");
+
+  // Header row
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Component", leftX + 5, y);
+  doc.text("Amount", 95, y);
+  doc.text("Notes", 120, y);
+  y += 7;
+
+  // Rows
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  const lineHeight = 6;
+
+  enabledCustoms.forEach((c) => {
+    ensureSpace(lineHeight + 6);
+
+    const labelText = (c.label || "").trim();
+    const amtStr =
+      (c.amount >= 0 ? "+$" : "-$") +
+      Math.abs(c.amount).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+
+    const notes = (c.notes || "").trim();
+    const wrappedNotes = notes
+      ? doc.splitTextToSize(notes, pageWidth - 20 - 120) // wrap within Notes column
+      : [""];
+
+    doc.text(labelText || "—", leftX + 5, y, { maxWidth: 65 });
+    doc.text(amtStr, 95, y);
+    doc.text(wrappedNotes, 120, y);
+
+    const rowHeight = wrappedNotes.length * lineHeight;
+    y += rowHeight + 2;
+  });
+}
+
+
+
+  // --- Warranty ---
+  addSectionHeader("Warranty");
+  if (warranty === "warranty5") addService("5-Year Extended Warranty", "", "Extended protection for system");
+  else if (warranty === "warranty8") addService("8-Year Extended Warranty", "", "Extended protection for system");
+  else addService("Standard Warranty", "", "Basic coverage included at no cost");
+
+  // --- Sales Tax ---
+  addSectionHeader("8.25% Sales Tax");
+
+  // --- Total ---
+  ensureSpace(15);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Total: $${totalStr}`, pageWidth - 20, y, { align: "right" });
+
+  // --- Footer ---
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100);
+  doc.text(
+    "Thank you for your interest in Aquaria. This quote is valid for 30 days. Aquaria Atmospheric Water Generator units are exempt from sales tax.",
+    pageWidth / 2,
+    pageHeight - 12,
+    { align: "center", maxWidth: pageWidth - 40 }
+  );
+
+  doc.save("Hydropack_Quote.pdf");
 };
+
+
 
 
 
@@ -718,81 +826,90 @@ else if (panelUpgrade === "subpanel") addService("Subpanel Upgrade", "", "Electr
 
 <fieldset className="border border-gray-300 rounded bg-gray-50 mb-6 p-4">
   <legend className="font-semibold px-2">Trenching Sections</legend>
-  {trenchingSections.map((section, index) => (
-  <div
-  key={index}
-  className="w-full flex flex-wrap md:flex-nowrap items-start gap-4 p-4 border border-gray-300 rounded-md bg-white"
->
-  {/* Material */}
-  <div className="flex flex-col flex-1 min-w-[140px]">
-    <label className="text-sm font-medium text-gray-600 mb-1">Material</label>
-    <select
-  className="border border-gray-300 rounded px-2 py-1"
-  value={section.type}
-  onChange={(e) => {
-    const updated = [...trenchingSections];
-    updated[index].type = e.target.value;
-    setTrenchingSections(updated);
-    setQuoteIsStale(true);
-    setShowFinancing(false);
-  }}
->
 
-      <option value="">Select</option>
-      <option value="trench_elec">Electrical</option>
-      <option value="trench_plumb">Plumbing</option>
-      <option value="trench_comb">Combined Electrical + Plumbing</option>
-      {/* <option value="dirt">Dirt</option> */}
-      {/* <option value="rock">Rock</option> */}
-      {/* <option value="limestone">Limestone</option> */}
-      {/* <option value="elec_above_gr">Electrical (above ground)</option> */}
-      {/* <option value="plumb_above_gr">Plumbing (above ground)</option> */}
-      {/* <option value="comb_above_gr">Combined (above ground)</option> */}
-    </select>
+  {/* Wrapper so the overlay positions over this block */}
+  <div className="relative isolate overflow-hidden">
+    {trenchingSections.map((section, index) => (
+      <div
+        key={index}
+        className="w-full flex flex-wrap md:flex-nowrap items-start gap-4 p-4 border border-gray-300 rounded-md bg-white"
+      >
+        {/* Material */}
+        <div className="flex flex-col flex-1 min-w-[140px]">
+          <label className="text-sm font-medium text-gray-600 mb-1">Material</label>
+          <select
+            className="border border-gray-300 rounded px-2 py-1"
+            value={section.type}
+            onChange={(e) => {
+              const updated = [...trenchingSections];
+              updated[index].type = e.target.value;
+              setTrenchingSections(updated);
+              setQuoteIsStale(true);
+              setShowFinancing(false);
+              // (Optional) you can trigger egg here too, but distance is enough.
+            }}
+          >
+            <option value="">Select</option>
+            <option value="trench_elec">Electrical</option>
+            <option value="trench_plumb">Plumbing</option>
+            <option value="trench_comb">Combined Electrical + Plumbing</option>
+          </select>
+        </div>
+
+        {/* Distance */}
+        <div className="flex flex-col flex-1 min-w-[140px]">
+          <label className="text-sm font-medium text-gray-600 mb-1">Distance (ft)</label>
+          <input
+            type="number"
+            min="0"
+            className="border border-gray-300 rounded px-2 py-1"
+            value={section.distance}
+            onChange={(e) => {
+              const updated = [...trenchingSections];
+              updated[index].distance = parseFloat(e.target.value) || 0;
+              setTrenchingSections(updated);
+              setQuoteIsStale(true);
+              setShowFinancing(false);
+            }}
+            onBlur={() => {
+              const egg = checkEasterEgg({ trenchingSections, ab_trenchingSections });
+              if (egg) showEgg(egg.message, egg.duration);
+            }}
+          />
+
+        </div>
+
+        {/* Remove Button */}
+        <button
+          type="button"
+          className="text-red-500 text-xl px-2 mt-6 md:mt-0"
+          onClick={() => {
+            const updated = trenchingSections.filter((_, i) => i !== index);
+            setTrenchingSections(updated);
+            setQuoteIsStale(true);
+            setShowFinancing(false);
+          }}
+        >
+          ✕
+        </button>
+      </div>
+    ))}
+
+    <button
+      type="button"
+      className="text-sm text-blue-600 mt-2"
+      onClick={() =>
+        setTrenchingSections([...trenchingSections, { type: "", distance: 0 }])
+      }
+    >
+      + Add Another Section
+    </button>
+
+    {/* The overlay sits above the whole Trenching block */}
+    <EasterEggOverlay message={easterEggMsg} />
   </div>
-
-  {/* Distance */}
-  <div className="flex flex-col flex-1 min-w-[140px]">
-    <label className="text-sm font-medium text-gray-600 mb-1">Distance (ft)</label>
-    <input
-  type="number"
-  min="0"
-  className="border border-gray-300 rounded px-2 py-1"
-  value={section.distance}
-  onChange={(e) => {
-    const updated = [...trenchingSections];
-    updated[index].distance = parseFloat(e.target.value) || 0;
-    setTrenchingSections(updated);
-    setQuoteIsStale(true);
-    setShowFinancing(false);
-  }}
-/>
-
-  </div>
-
-{/* Remove Button */}
-<button
-  type="button"
-  className="text-red-500 text-xl px-2 mt-6 md:mt-0"
-  onClick={() => {
-    const updated = trenchingSections.filter((_, i) => i !== index);
-    setTrenchingSections(updated);
-    setQuoteIsStale(true); // Mark quote as stale when a section is removed
- setShowFinancing(false); 
-  }}
->
-  ✕
-</button>
-</div>
-  ))}
-  <button
-    type="button"
-    className="text-sm text-blue-600 mt-2"
-    onClick={() => setTrenchingSections([...trenchingSections, { type: "", distance: 0 }])}
-  >
-    + Add Another Section
-  </button>
 </fieldset>
+
 
 <fieldset className="border border-gray-300 rounded bg-gray-50 mb-6 p-4">
   <legend className="font-semibold px-2">Above-Ground Runs</legend>
@@ -807,13 +924,19 @@ else if (panelUpgrade === "subpanel") addService("Subpanel Upgrade", "", "Electr
         <select
           className="border border-gray-300 rounded px-2 py-1"
           value={section.type}
-          onChange={(e) => {
-            const updated = [...ab_trenchingSections];
-            updated[index].type = e.target.value;
-            setab_TrenchingSections(updated);
-            setQuoteIsStale(true);
-            setShowFinancing(false);
-          }}
+      onChange={(e) => {
+        const updated = [...ab_trenchingSections];
+        updated[index].type = e.target.value; // not distance
+        setab_TrenchingSections(updated);
+        setQuoteIsStale(true);
+        setShowFinancing(false);
+        const egg = checkEasterEgg({ trenchingSections, ab_trenchingSections: updated });
+        if (egg) showEgg(egg.message, egg.duration);
+      }}
+
+
+
+
         >
           <option value="">Select</option>
           <option value="ab_elec">Electrical (above ground)</option>
@@ -837,7 +960,12 @@ else if (panelUpgrade === "subpanel") addService("Subpanel Upgrade", "", "Electr
             setQuoteIsStale(true);
             setShowFinancing(false);
           }}
+          onBlur={() => {
+            const egg = checkEasterEgg({ trenchingSections, ab_trenchingSections });
+            if (egg) showEgg(egg.message, egg.duration);
+          }}
         />
+
       </div>
 
       {/* Remove Button */}
@@ -938,24 +1066,28 @@ else if (panelUpgrade === "subpanel") addService("Subpanel Upgrade", "", "Electr
   </div>
 </fieldset>
 
-
-
-
-
+<CustomAdjustmentsGroup
+  items={customAdjs}
+  onChange={setCustomAdjs}
+  onDirty={markDirty}
+/>
         
 
 {quoteTotal !== null && (
   <>
     <hr className="my-6 border-t border-gray-300" />
 
-    <p className="text-center text-2xl font-semibold text-gray-800">
-      Total:{" "}
-      <span className="text-green-600">
-        ${quoteTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-      </span>
-    </p>
+    <div className="relative inline-block w-full">
+      <p className="text-center text-2xl font-semibold text-gray-800">
+        Total:{" "}
+        <span className="text-green-600">
+          ${quoteTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
+      </p>
+    </div>
   </>
 )}
+
 
 
 
