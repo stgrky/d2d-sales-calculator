@@ -8,7 +8,10 @@ import FinancingCalculator from "@/components/FinancingCalculator"; // adjust pa
 import type { CustomAdjustment } from "@/components/CustomAdjustmentBox";
 import CustomAdjustmentsGroup from "@/components/CustomAdjustmentsGroup";
 import { checkEasterEgg, EasterEggOverlay } from "@/components/EasterEggs";
-
+import CustomerInfoPanel, {
+  CustomerInfo,
+  REQUIRED_CUSTOMER_KEYS
+} from "@/components/CustomerInfoPanel";
 
 const HomePage: React.FC = () => {
   // State hooks first
@@ -60,6 +63,32 @@ const [customAdjs, setCustomAdjs] = useState<CustomAdjustment[]>([
 const markDirty = () => { setQuoteIsStale(true); setShowFinancing(false); };
 const [easterEggMsg, setEasterEggMsg] = useState<string | null>(null);
 const eggTimerRef = useRef<number | null>(null);
+const [customer, setCustomer] = useState<CustomerInfo>({
+  company: "",
+  contactName: "",
+  email: "",
+  phone: "",
+  serviceStreet: "",
+  serviceCity: "",
+  serviceState: "",
+  serviceZip: "",
+  poNumber: "",
+});
+
+// load from localStorage on mount
+useEffect(() => {
+  try {
+    const saved = localStorage.getItem("aq_customer");
+    if (saved) setCustomer(JSON.parse(saved));
+  } catch {}
+}, []);
+
+// save on changes
+useEffect(() => {
+  try {
+    localStorage.setItem("aq_customer", JSON.stringify(customer));
+  } catch {}
+}, [customer]);
 
 useEffect(() => {
   return () => {
@@ -345,6 +374,57 @@ if (enabledCustoms.length > 0) {
 };
 
 
+function resetAll() {
+  if (!confirm("Clear all fields and reset this quote?")) return;
+
+  // Reset core selections
+  setModel("");
+  setUnitPad(false);
+  setMobility(false);
+  setTank("");
+  setTankPad(false);
+  setCity("");
+  setSensor("");
+  setFilter("");
+  setFilterQty(0);
+  setPump("");
+  setConnection("");
+
+  setTrenchingSections([{ type: "", distance: 0 }]);
+  setab_TrenchingSections([{ type: "", distance: 0 }]);
+  setPanelUpgrade("");
+  setWarranty("standard");
+  setDemolition({ enabled: false, distance: 0 });
+
+  setCustomAdjs([{ enabled: false, label: "", amount: 0, notes: "" }]);
+
+  // Reset totals & financing
+  setQuoteTotal(null);
+  setTotal(0);
+  setShowFinancing(false);
+  setQuoteIsStale(true);
+
+  // Reset customer info
+  setCustomer({
+    company: "",
+    contactName: "",
+    email: "",
+    phone: "",
+    serviceStreet: "",
+    serviceCity: "",
+    serviceState: "",
+    serviceZip: "",
+    poNumber: "",
+  });
+
+  // Clear stored customer data
+  try {
+    localStorage.removeItem("aq_customer");
+  } catch {}
+
+  // Optional: clear easter eggs
+  setEasterEggMsg(null);
+}
 
 
 const calculateTotal = () => {
@@ -366,6 +446,12 @@ const downloadPDF = async () => {
     alert("Please click 'Calculate Total' to generate an updated quote before downloading.");
     return;
   }
+
+  const missing = REQUIRED_CUSTOMER_KEYS.filter(k => !customer[k] || String(customer[k]).trim() === "");
+  if (missing.length) {
+    alert("Please complete required customer fields before generating the PDF.");
+  return;
+}
 
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -461,6 +547,28 @@ const downloadPDF = async () => {
   doc.text("600 Congress Ave, Austin, TX 78701", infoX, infoY);
   infoY += 6;
   doc.text(`Quote Generated: ${date}`, infoX, infoY);
+
+  // Customer Info Block (left side)
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(43, 103, 119);
+  doc.text("Customer", leftX, 30);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+
+  let custY = 36;
+  const addr = `${customer.serviceStreet}, ${customer.serviceCity}, ${customer.serviceState} ${customer.serviceZip}`;
+  
+  doc.text(customer.company ? `${customer.company}` : `${customer.contactName}`, leftX, custY); custY += 5;
+  if (customer.company) { doc.text(`Attn: ${customer.contactName}`, leftX, custY); custY += 5; }
+  if (customer.phone) { doc.text(`Phone: ${customer.phone}`, leftX, custY); custY += 5; }
+  if (customer.email) { doc.text(`Email: ${customer.email}`, leftX, custY); custY += 5; }
+  doc.text(`Service: ${addr}`, leftX, custY); custY += 5;
+  if (customer.poNumber) { doc.text(`PO / Project: ${customer.poNumber}`, leftX, custY); custY += 5; }
+
+  // bump main content start if needed so it doesn't collide
+  y = Math.max(y, custY + 6);
 
   // --- Main Product ---
   addSectionHeader("Main Product");
@@ -602,6 +710,28 @@ if (enabledCustoms.length > 0) {
     { align: "center", maxWidth: pageWidth - 40 }
   );
 
+  function sanitizeFilename(name: string) {
+  return name
+    .normalize("NFKD").replace(/[\u0300-\u036f]/g, "") // strip accents
+    .replace(/[\\/:"*?<>|]+/g, "")                    // illegal on Win/Mac
+    .replace(/\s+/g, " ")                              // collapse whitespace
+    .trim()
+    .replace(/ /g, "_")                                // spaces -> underscores
+    .slice(0, 180);                                    // keep it reasonable
+}
+
+const dateISO = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+const serviceAddr =
+  `${customer.serviceStreet} ${customer.serviceCity} ${customer.serviceState} ${customer.serviceZip}`.trim();
+const who = customer.company || customer.contactName || "Customer";
+
+const filename = sanitizeFilename(
+  `Hydropack_Quote_${who}_${serviceAddr}_${dateISO}.pdf`
+);
+
+// finally:
+doc.save(filename);
+
   doc.save("Hydropack_Quote.pdf");
 };
 
@@ -622,6 +752,7 @@ if (enabledCustoms.length > 0) {
         <h1 className="text-2xl font-bold text-center mb-6">
           Aquaria Hydropack Quote Generator
         </h1>
+        <CustomerInfoPanel value={customer} onChange={(c) => { setCustomer(c); }} />
 
         <fieldset className="border border-gray-300 rounded bg-gray-50 mb-6 p-4">
           <legend className="font-semibold px-2">Hydropack Model</legend>
@@ -1088,8 +1219,13 @@ if (enabledCustoms.length > 0) {
   </>
 )}
 
-
-
+<button
+  type="button"
+  onClick={resetAll}
+  className="block w-full py-3 mt-2 text-lg bg-gray-100 text-gray-800 rounded border border-gray-300 hover:bg-gray-200"
+>
+  Clear All Fields
+</button>
 
 <button
   className="block w-full py-3 mt-4 text-lg bg-green-600 text-white rounded hover:bg-green-700"
@@ -1097,7 +1233,6 @@ if (enabledCustoms.length > 0) {
 >
   {quoteIsStale ? "Calculate Total" : "Calculate Total"}
 </button>
-
 
 <button
   disabled={quoteTotal === null || quoteIsStale}
