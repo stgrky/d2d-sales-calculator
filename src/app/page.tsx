@@ -1428,7 +1428,7 @@ doc.save(filename);
     }}
     className={`w-full py-2 mt-4 rounded text-white ${
       discountActive
-        ? "bg-amber-600 hover:bg-amber-700"
+        ? "bg-gray-600 hover:bg-gray-700"
         : "bg-gray-400 hover:bg-gray-500"
     }`}
   >
