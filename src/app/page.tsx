@@ -13,6 +13,14 @@ import CustomerInfoPanel, {
   REQUIRED_CUSTOMER_KEYS
 } from "@/components/CustomerInfoPanel";
 
+// Discount master switch
+const DISCOUNT_FEATURE_ENABLED = true; // flip to false to globally disable
+// 2025 EOY / future promo discounts
+const DISCOUNT_CAMPAIGN = {
+  label: "Aquaria End of Year Discount",
+  rate: 0.13,
+};
+
 const HomePage: React.FC = () => {
   // State hooks first
   useEffect(() => {
@@ -74,6 +82,12 @@ const [customer, setCustomer] = useState<CustomerInfo>({
   serviceZip: "",
   poNumber: "",
 });
+const [originalTotal, setOriginalTotal] = useState<number | null>(null);
+const [discountedTotal, setDiscountedTotal] = useState<number | null>(null);
+const [discountAmount, setDiscountAmount] = useState<number>(0);
+const [discountActive, setDiscountActive] = useState<boolean>(DISCOUNT_FEATURE_ENABLED);
+const isDiscountOn = DISCOUNT_FEATURE_ENABLED && discountActive;
+
 
 // load from localStorage on mount
 useEffect(() => {
@@ -353,7 +367,7 @@ if (demolition?.enabled && demolition?.distance > 0) {
   filter,
   filterQty,
   demolition,
-  customAdjs
+  customAdjs,
 });
   
 const enabledCustoms = customAdjs.filter(
@@ -369,10 +383,8 @@ if (enabledCustoms.length > 0) {
   const taxRate = 0.0825;
   const tax = taxable * taxRate;
   const finalTotal = subtotal + installTotal + tax;
-
   return finalTotal;
 };
-
 
 function resetAll() {
   if (!confirm("Clear all fields and reset this quote?")) return;
@@ -404,6 +416,11 @@ function resetAll() {
   setShowFinancing(false);
   setQuoteIsStale(true);
 
+  setOriginalTotal(null);
+  setDiscountedTotal(null);
+  setDiscountAmount(0);
+  setDiscountActive(DISCOUNT_FEATURE_ENABLED);
+
   // Reset customer info
   setCustomer({
     company: "",
@@ -429,13 +446,41 @@ function resetAll() {
 
 const calculateTotal = () => {
   // commit any focused input (amount box) that commits on blur
-  if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+  if (
+    typeof document !== "undefined" &&
+    document.activeElement instanceof HTMLElement
+  ) {
     document.activeElement.blur();
   }
 
-  const final = getTotal();
-  setQuoteTotal(final);
-  setTotal(final);
+  // 1) Compute original, pre-discount total
+  const baseTotal = getTotal();
+
+  // 2) Save original total
+  setOriginalTotal(baseTotal);
+
+  // 3) If discount feature is enabled & currently active, apply it
+  const applyDiscount = isDiscountOn; // or include feature flag if you added DISCOUNT_FEATURE_ENABLED
+
+  if (applyDiscount) {
+    const discAmount = baseTotal * DISCOUNT_CAMPAIGN.rate;
+    const discTotal = baseTotal - discAmount;
+
+    setDiscountAmount(discAmount);
+    setDiscountedTotal(discTotal);
+
+    // Final amount customer sees / financing uses
+    setQuoteTotal(discTotal);
+    setTotal(discTotal);
+  } else {
+    // No discount applied
+    setDiscountAmount(0);
+    setDiscountedTotal(null);
+
+    setQuoteTotal(baseTotal);
+    setTotal(baseTotal);
+  }
+
   setQuoteIsStale(false);
 };
 
@@ -460,10 +505,40 @@ const downloadPDF = async () => {
 
   const doc = new jsPDF("p", "mm", "a4");
   const date = new Date().toLocaleDateString("en-US");
-  const totalStr = total.toLocaleString(undefined, {
+  const baseTotal = originalTotal ?? total; // fallback just in case
+  const isDiscountActive =
+  DISCOUNT_FEATURE_ENABLED &&
+  discountActive &&
+  originalTotal !== null &&
+  discountedTotal !== null &&
+  discountedTotal !== originalTotal;
+
+
+  const baseTotalStr = baseTotal.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+
+  const discountAmountStr = isDiscountActive
+    ? (discountAmount || baseTotal - (discountedTotal as number)).toLocaleString(
+        undefined,
+        {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }
+      )
+    : "0.00";
+
+  const discountedTotalStr = (isDiscountActive
+    ? discountedTotal
+    : baseTotal
+  )!.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  // Keep `total` as the final discounted total for filename / footer if you want
+
 
   // --- helpers ---
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -692,12 +767,56 @@ if (enabledCustoms.length > 0) {
   // --- Sales Tax ---
   addSectionHeader("8.25% Sales Tax");
 
-  // --- Total ---
-  ensureSpace(15);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
+  // --- Discount Line Item + Totals ---
+ensureSpace(25);
+doc.setFont("helvetica", "bold");
+doc.setTextColor(0, 0, 0);
+
+// If the discount is active, show original, discount, and discounted total
+if (isDiscountActive) {
+  // Original total (smaller font)
+  doc.setFontSize(10);
+  doc.text(
+    `Original Total: $${baseTotalStr}`,
+    pageWidth - 20,
+    y,
+    { align: "right" }
+  );
+  y += 6;
+
+  // Discount line (friendly orange)
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0); // approx Tailwind amber-600
+  doc.text(
+    `${DISCOUNT_CAMPAIGN.label}: -$${discountAmountStr}`,
+    pageWidth - 20,
+    y,
+    { align: "right" }
+  );
+  y += 6;
+
+  // Final discounted total (larger font, black)
   doc.setTextColor(0, 0, 0);
-  doc.text(`Total: $${totalStr}`, pageWidth - 20, y, { align: "right" });
+  doc.setFontSize(13);
+  doc.text(
+    `Total after Discount: $${discountedTotalStr}`,
+    pageWidth - 20,
+    y,
+    { align: "right" }
+  );
+  y += 2;
+} else {
+  // No discount → single total line only
+  doc.setFontSize(13);
+  doc.text(
+    `Total: $${baseTotalStr}`,
+    pageWidth - 20,
+    y,
+    { align: "right" }
+  );
+  y += 2;
+}
+
 
   // --- Footer ---
   doc.setFontSize(9);
@@ -731,8 +850,6 @@ const filename = sanitizeFilename(
 
 // finally:
 doc.save(filename);
-
-  doc.save("Hydropack_Quote.pdf");
 };
 
 
@@ -1204,20 +1321,67 @@ doc.save(filename);
 />
         
 
-{quoteTotal !== null && (
+{originalTotal !== null && (
   <>
     <hr className="my-6 border-t border-gray-300" />
 
-    <div className="relative inline-block w-full">
-      <p className="text-center text-2xl font-semibold text-gray-800">
-        Total:{" "}
-        <span className="text-green-600">
-          ${quoteTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </span>
-      </p>
+    <div className="space-y-2 text-center">
+
+      {/* When discount IS active */}
+      {isDiscountOn && discountedTotal !== null && discountAmount > 0 ? (
+        <>
+          {/* Original Total */}
+          <p className="text-sm font-medium text-gray-500">
+            Original Total:{" "}
+            <span className="font-semibold">
+              ${originalTotal.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </p>
+
+          {/* Discount */}
+          <p className="text-sm text-gray-600">
+            {DISCOUNT_CAMPAIGN.label}:{" "}
+            <span className="font-semibold text-amber-600">
+              -$
+              {discountAmount.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </p>
+
+          {/* Discounted Total */}
+          <p className="text-2xl font-semibold text-gray-800">
+            Discounted Total:{" "}
+            <span className="text-green-600">
+              ${discountedTotal.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </p>
+        </>
+      ) : (
+        /* When discount is NOT active — show only one total */
+        <p className="text-2xl font-semibold text-gray-800">
+          Total:{" "}
+          <span className="text-green-600">
+            ${originalTotal.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </span>
+        </p>
+      )}
     </div>
   </>
 )}
+
+
+
 
 <button
   type="button"
@@ -1233,6 +1397,48 @@ doc.save(filename);
 >
   {quoteIsStale ? "Calculate Total" : "Calculate Total"}
 </button>
+
+{DISCOUNT_FEATURE_ENABLED && (
+  <button
+    type="button"
+    onClick={() => {
+      setDiscountActive((prev) => {
+        const next = !prev;
+
+        // Only adjust totals if we already have a quote
+        if (originalTotal !== null) {
+          if (next) {
+            const discAmount = originalTotal * DISCOUNT_CAMPAIGN.rate;
+            const discTotal = originalTotal - discAmount;
+
+            setDiscountAmount(discAmount);
+            setDiscountedTotal(discTotal);
+            setQuoteTotal(discTotal);
+            setTotal(discTotal);
+          } else {
+            setDiscountAmount(0);
+            setDiscountedTotal(null);
+            setQuoteTotal(originalTotal);
+            setTotal(originalTotal);
+          }
+        }
+
+        return next;
+      });
+    }}
+    className={`w-full py-2 mt-4 rounded text-white ${
+      discountActive
+        ? "bg-amber-600 hover:bg-amber-700"
+        : "bg-gray-400 hover:bg-gray-500"
+    }`}
+  >
+    {discountActive
+      ? "Disable End-of-Year Discount"
+      : "Enable End-of-Year Discount"}
+  </button>
+)}
+
+
 
 <button
   disabled={quoteTotal === null || quoteIsStale}
