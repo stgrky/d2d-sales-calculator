@@ -14,7 +14,7 @@ import CustomerInfoPanel, {
 } from "@/components/CustomerInfoPanel";
 
 // Discount master switch
-const DISCOUNT_FEATURE_ENABLED = true; // flip to false to globally disable
+const DISCOUNT_FEATURE_ENABLED = false; // flip to false to globally disable
 // 2025 EOY / future promo discounts
 const DISCOUNT_CAMPAIGN = {
   label: "Aquaria End of Year Discount",
