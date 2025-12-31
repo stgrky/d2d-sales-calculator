@@ -4,6 +4,17 @@
 import { useState, useRef, useEffect } from "react";
 import './globals.css';
 import Head from "next/head";
+import { 
+  supabase, 
+  getAllPartners, 
+  saveQuote,
+  updateQuote,
+  getQuotes,
+  generateQuoteNumber,
+  type Partner,
+  type Quote,
+  type QuoteConfig
+} from '@/lib/supabase';
 import FinancingCalculator from "@/components/FinancingCalculator"; // adjust path if needed
 import type { CustomAdjustment } from "@/components/CustomAdjustmentBox";
 import CustomAdjustmentsGroup from "@/components/CustomAdjustmentsGroup";
@@ -12,6 +23,10 @@ import CustomerInfoPanel, {
   CustomerInfo,
   REQUIRED_CUSTOMER_KEYS
 } from "@/components/CustomerInfoPanel";
+import SavedQuotesList from "@/components/SavedQuotesList";
+
+
+
 
 // Discount master switch
 const DISCOUNT_FEATURE_ENABLED = false; // flip to false to globally disable
@@ -33,7 +48,6 @@ const HomePage: React.FC = () => {
     document.body.removeChild(script);
   };
 }, []);
-
   const [model, setModel] = useState<string>("");
   const [unitPad, setUnitPad] = useState<boolean>(false);
   const [mobility, setMobility] = useState<boolean>(false);
@@ -87,7 +101,29 @@ const [discountedTotal, setDiscountedTotal] = useState<number | null>(null);
 const [discountAmount, setDiscountAmount] = useState<number>(0);
 const [discountActive, setDiscountActive] = useState<boolean>(DISCOUNT_FEATURE_ENABLED);
 const isDiscountOn = DISCOUNT_FEATURE_ENABLED && discountActive;
+const [currentQuoteId, setCurrentQuoteId] = useState<string | null>(null);
+const [quoteNumber, setQuoteNumber] = useState<string>('');
+const [currentPartner, setCurrentPartner] = useState<Partner | null>(null);
+const [availablePartners, setAvailablePartners] = useState<Partner[]>([]);
 
+// load partners
+useEffect(() => {
+  async function loadPartners() {
+    try {
+      const partners = await getAllPartners();
+      setAvailablePartners(partners);
+      
+      // Set Aquaria HQ as default partner
+      const aquaria = partners.find(p => p.partner_code === 'AQUARIA_HQ');
+      if (aquaria) {
+        setCurrentPartner(aquaria);
+      }
+    } catch (err) {
+      console.error('Failed to load partners:', err);
+    }
+  }
+  loadPartners();
+}, []);
 
 // load from localStorage on mount
 useEffect(() => {
@@ -483,6 +519,174 @@ const calculateTotal = () => {
 
   setQuoteIsStale(false);
 };
+
+const saveCurrentQuote = async () => {
+  // Validate customer info
+  const missing = REQUIRED_CUSTOMER_KEYS.filter(
+    k => !customer[k] || String(customer[k]).trim() === ""
+  );
+  
+  if (missing.length) {
+    alert("Please complete required customer fields before saving.");
+    return;
+  }
+
+  // Make sure quote is calculated
+  if (quoteTotal === null || quoteIsStale) {
+    alert("Please calculate the total before saving.");
+    return;
+  }
+
+  try {
+    const quoteConfig: QuoteConfig = {
+      model,
+      unitPad,
+      mobility,
+      tank,
+      tankPad,
+      city,
+      sensor,
+      filter,
+      filterQty,
+      pump,
+      connection,
+      trenchingSections,
+      ab_trenchingSections,
+      panelUpgrade,
+      warranty,
+      demolition,
+      customAdjs,
+    };
+
+    // Capture the actual pricing used for this quote
+    const partnerPricing = {
+      modelPrices,
+      tankPrices,
+      tankPads,
+      cityDelivery,
+      sensorPrices,
+      filterPrices,
+      pumpPrices,
+      trenchRates,
+      ab_trenchRates,
+      fees: {
+        admin: 500,
+        commission: 2500,
+        aquariaManagement: 500,
+        disposal: 200,
+        net30: 100,
+      },
+      taxRate: 0.0825,
+    };
+
+    const quoteData = {
+      quote_number: quoteNumber || generateQuoteNumber(),
+      customer_company: customer.company || null,
+      customer_name: customer.contactName,
+      customer_email: customer.email || null,
+      customer_phone: customer.phone || null,
+      service_street: customer.serviceStreet,
+      service_city: customer.serviceCity,
+      service_state: customer.serviceState,
+      service_zip: customer.serviceZip,
+      po_number: customer.poNumber || null,
+      partner_id: currentPartner?.partner_code || 'AQUARIA_HQ',
+      partner_name: currentPartner?.company_name || 'Aquaria Technologies',
+      partner_logo_url: currentPartner?.logo_url || null,
+      quote_config: quoteConfig,
+      original_total: originalTotal,
+      discount_amount: discountAmount,
+      final_total: total,
+      partner_pricing: partnerPricing, // Save actual pricing used
+      status: 'draft' as const,
+      notes: null,
+    };
+
+    let savedQuote;
+    
+    if (currentQuoteId) {
+      // Update existing quote
+      savedQuote = await updateQuote(currentQuoteId, quoteData);
+      alert(`Quote ${savedQuote?.quote_number} updated successfully!`);
+    } else {
+      // Save new quote
+      savedQuote = await saveQuote(quoteData);
+      if (savedQuote) {
+        setCurrentQuoteId(savedQuote.id!);
+        setQuoteNumber(savedQuote.quote_number);
+        alert(`Quote saved! Quote #: ${savedQuote.quote_number}`);
+      }
+    }
+
+    if (!savedQuote) {
+      alert('Failed to save quote. Please try again.');
+    }
+  } catch (error) {
+    console.error('Error saving quote:', error);
+    alert('An error occurred while saving the quote.');
+  }
+};
+
+const loadQuote = (quote: Quote) => {
+  if (!confirm("Load this quote? Any unsaved changes will be lost.")) return;
+
+  // Load customer info
+  setCustomer({
+    company: quote.customer_company || "",
+    contactName: quote.customer_name,
+    email: quote.customer_email || "",
+    phone: quote.customer_phone || "",
+    serviceStreet: quote.service_street,
+    serviceCity: quote.service_city,
+    serviceState: quote.service_state,
+    serviceZip: quote.service_zip,
+    poNumber: quote.po_number || "",
+  });
+
+  // Load quote config
+  const config = quote.quote_config;
+  setModel(config.model);
+  setUnitPad(config.unitPad);
+  setMobility(config.mobility);
+  setTank(config.tank);
+  setTankPad(config.tankPad);
+  setCity(config.city);
+  setSensor(config.sensor);
+  setFilter(config.filter);
+  setFilterQty(config.filterQty);
+  setPump(config.pump);
+  setConnection(config.connection);
+  setTrenchingSections(config.trenchingSections);
+  setab_TrenchingSections(config.ab_trenchingSections);
+  setPanelUpgrade(config.panelUpgrade);
+  setWarranty(config.warranty);
+  setDemolition(config.demolition);
+  setCustomAdjs(config.customAdjs);
+
+  // Load pricing
+  setOriginalTotal(quote.original_total);
+  setDiscountAmount(quote.discount_amount);
+  setTotal(quote.final_total);
+  setQuoteTotal(quote.final_total);
+  
+  if (quote.discount_amount > 0) {
+    setDiscountedTotal(quote.final_total);
+    setDiscountActive(true);
+  }
+
+  // Set quote ID and number for updates
+  setCurrentQuoteId(quote.id!);
+  setQuoteNumber(quote.quote_number);
+  
+  setQuoteIsStale(false);
+  setShowFinancing(false);
+
+  alert(`Loaded quote ${quote.quote_number}`);
+  
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
 
 
 // Download PDF using jsPDF
@@ -1398,6 +1602,7 @@ doc.save(filename);
   {quoteIsStale ? "Calculate Total" : "Calculate Total"}
 </button>
 
+
 {DISCOUNT_FEATURE_ENABLED && (
   <button
     type="button"
@@ -1435,14 +1640,9 @@ doc.save(filename);
     {discountActive
       ? "Disable End-of-Year Discount"
       : "Enable End-of-Year Discount"}
-      <div className="text-xs text-gray-500 text-center mt-2">
-  Feature Flag: {DISCOUNT_FEATURE_ENABLED ? 'ENABLED' : 'DISABLED'}
-</div>
   </button>
   
 )}
-
-
 
 <button
   disabled={quoteTotal === null || quoteIsStale}
@@ -1461,6 +1661,25 @@ doc.save(filename);
 >
   Download Quote PDF
 </button>
+
+<button
+  type="button"
+  disabled={quoteTotal === null || quoteIsStale}
+  onClick={saveCurrentQuote}
+  className={`block w-full py-3 mt-4 text-lg rounded text-white ${
+    quoteTotal === null || quoteIsStale
+      ? 'bg-gray-400 cursor-not-allowed'
+      : 'bg-green-600 hover:bg-green-700'
+  }`}
+>
+  {currentQuoteId ? 'Update Saved Quote' : 'Save Quote'}
+</button>
+
+{quoteNumber && (
+  <p className="text-center text-sm text-gray-600 mt-2">
+    Quote #: <strong>{quoteNumber}</strong>
+  </p>
+)}
 
    <button
   onClick={() => {
@@ -1497,9 +1716,10 @@ doc.save(filename);
   {showFinancing && <FinancingCalculator totalAmount={total} />}
 </div>
 
-
-
-
+<SavedQuotesList 
+  onLoadQuote={loadQuote}
+  partnerId={currentPartner?.partner_code}
+/>
 
       </div>
     </>
