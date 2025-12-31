@@ -1435,7 +1435,11 @@ doc.save(filename);
     {discountActive
       ? "Disable End-of-Year Discount"
       : "Enable End-of-Year Discount"}
+      <div className="text-xs text-gray-500 text-center mt-2">
+  Feature Flag: {DISCOUNT_FEATURE_ENABLED ? 'ENABLED' : 'DISABLED'}
+</div>
   </button>
+  
 )}
 
 
