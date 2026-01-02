@@ -4,12 +4,10 @@
 import { useState, useRef, useEffect } from "react";
 import './globals.css';
 import Head from "next/head";
-import { 
-  supabase, 
+import {  
   getAllPartners, 
   saveQuote,
   updateQuote,
-  getQuotes,
   generateQuoteNumber,
   type Partner,
   type Quote,
@@ -104,15 +102,13 @@ const isDiscountOn = DISCOUNT_FEATURE_ENABLED && discountActive;
 const [currentQuoteId, setCurrentQuoteId] = useState<string | null>(null);
 const [quoteNumber, setQuoteNumber] = useState<string>('');
 const [currentPartner, setCurrentPartner] = useState<Partner | null>(null);
-const [availablePartners, setAvailablePartners] = useState<Partner[]>([]);
 
 // load partners
 useEffect(() => {
   async function loadPartners() {
     try {
       const partners = await getAllPartners();
-      setAvailablePartners(partners);
-      
+            
       // Set Aquaria HQ as default partner
       const aquaria = partners.find(p => p.partner_code === 'AQUARIA_HQ');
       if (aquaria) {

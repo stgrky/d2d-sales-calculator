@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import '../app/globals.css';
 import Head from "next/head";
 import { 
@@ -25,6 +26,17 @@ interface PartnerCalculatorProps {
   partner: Partner;
 }
 
+interface ModelPriceStructure {
+  system: number;
+  ship: number;
+  pad: number;
+  mobility: number;
+  warranty5: number;
+  warranty8: number;
+  install: number;
+  warrantys: number;
+}
+
 const DISCOUNT_FEATURE_ENABLED = false;
 const DISCOUNT_CAMPAIGN = {
   label: "End of Year Discount",
@@ -36,33 +48,33 @@ export default function PartnerCalculator({ partner }: PartnerCalculatorProps) {
   const partnerPricing = partner.pricing_overrides || {};
   
   // Apply partner pricing overrides (or use Aquaria defaults)
-  const modelPrices: Record<string, any> = partnerPricing.modelPrices || {
+  const modelPrices: Record<string, ModelPriceStructure> = (partnerPricing.modelPrices as Record<string, ModelPriceStructure>) || {
     s: { system: 9999, ship: 645, pad: 1750, mobility: 500, warranty5: 999, warranty8: 1499, install: 0, warrantys: 0 },
     standard: { system: 17499, ship: 1095, pad: 1850, mobility: 500, warranty5: 1749, warranty8: 2599, install: 0, warrantys: 0 },
     x: { system: 29999, ship: 1550, pad: 2100, mobility: 1000, warranty5: 2999, warranty8: 4499, install: 0, warrantys: 0 },
   };
 
-  const tankPrices: Record<string, number> = partnerPricing.tankPrices || {
+  const tankPrices: Record<string, number> = (partnerPricing.tankPrices as Record<string, number>) || {
     "500": 770.9, "1550": 1430.35, "3000": 2428.9, "5000": 5125.99
   };
 
-  const tankPads: Record<string, number> = partnerPricing.tankPads || {
+  const tankPads: Record<string, number> = (partnerPricing.tankPads as Record<string, number>) || {
     "500": 1750, "1550": 1850, "3000": 2300, "5000": 4200
   };
 
-  const cityDelivery: Record<string, number> = partnerPricing.cityDelivery || {
+  const cityDelivery: Record<string, number> = (partnerPricing.cityDelivery as Record<string, number>) || {
     Austin: 999, "Corpus Christi": 858, Dallas: 577.5, Houston: 200, "San Antonio": 660
   };
 
-  const sensorPrices: Record<string, number> = partnerPricing.sensorPrices || { "": 0, normal: 35 };
-  const filterPrices: Record<string, number> = partnerPricing.filterPrices || { s: 100, standard: 150, x: 200 };
-  const pumpPrices: Record<string, number> = partnerPricing.pumpPrices || { dab: 1900, mini: 800, "": 0 };
-  
-  const trenchRates: Record<string, number> = partnerPricing.trenchRates || {
+  const sensorPrices: Record<string, number> = (partnerPricing.sensorPrices as Record<string, number>) || { "": 0, normal: 35 };
+  const filterPrices: Record<string, number> = (partnerPricing.filterPrices as Record<string, number>) || { s: 100, standard: 150, x: 200 };
+  const pumpPrices: Record<string, number> = (partnerPricing.pumpPrices as Record<string, number>) || { dab: 1900, mini: 800, "": 0 };
+
+  const trenchRates: Record<string, number> = (partnerPricing.trenchRates as Record<string, number>) || {
     trench_elec: 32.5, trench_plumb: 58.5, trench_comb: 65.5, "": 0
   };
-  
-  const ab_trenchRates: Record<string, number> = partnerPricing.ab_trenchRates || {
+
+  const ab_trenchRates: Record<string, number> = (partnerPricing.ab_trenchRates as Record<string, number>) || {
     ab_elec: 35.5, ab_plumb: 26.5, ab_comb: 35.5, "": 0
   };
 
@@ -259,8 +271,8 @@ export default function PartnerCalculator({ partner }: PartnerCalculatorProps) {
 
     if (warranty && warranty !== "standard" && model) {
       if (warranty === "warranty5" || warranty === "warranty8") {
-        const wCost = modelPrices[model]?.[warranty] || 0;
-        subtotal += wCost;
+        const wCost = modelPrices[model]?.[warranty as keyof ModelPriceStructure] || 0;
+        subtotal += Number(wCost);
         hasSelections = true;
       }
     }
@@ -532,10 +544,11 @@ export default function PartnerCalculator({ partner }: PartnerCalculatorProps) {
       return;
     }
 
-    const jsPDF = (window as any).jspdf?.jsPDF;
+    const jsPDF = (window as unknown as { jspdf?: { jsPDF: unknown } }).jspdf?.jsPDF;
     if (!jsPDF) return;
 
-    const doc = new jsPDF("p", "mm", "a4");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const doc = new (jsPDF as any)("p", "mm", "a4");
     const date = new Date().toLocaleDateString("en-US");
     const baseTotal = originalTotal ?? total;
     const isDiscountActive = DISCOUNT_FEATURE_ENABLED && discountActive && originalTotal !== null && discountedTotal !== null && discountedTotal !== originalTotal;
@@ -597,12 +610,13 @@ export default function PartnerCalculator({ partner }: PartnerCalculatorProps) {
     const logoUrl = partner.logo_url || "https://raw.githubusercontent.com/KhalidMas23/Aquaria-Calculator/52de119ecbc4d4910952b0384c5092621f70e62d/AQ_TRANSPARENT_LOGO.png";
 
     const logo = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = reject;
-      img.crossOrigin = "anonymous";
-      img.src = logoUrl;
-    });
+    const img = new window.Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.crossOrigin = "anonymous";
+    img.src = logoUrl;
+  });
+
 
     doc.setFillColor(243, 244, 246);
     doc.rect(0, 0, pageWidth, 25, "F");
@@ -803,10 +817,12 @@ export default function PartnerCalculator({ partner }: PartnerCalculatorProps) {
       >
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           {partner.logo_url ? (
-            <img 
+            <Image 
               src={partner.logo_url} 
               alt={partner.company_name}
-              className="h-12 object-contain bg-white px-2 py-1 rounded"
+              width={200}
+              height={48}
+              className="h-12 w-auto object-contain bg-white px-2 py-1 rounded"
             />
           ) : (
             <h1 className="text-2xl font-bold text-white">
@@ -820,6 +836,7 @@ export default function PartnerCalculator({ partner }: PartnerCalculatorProps) {
           </div>
         </div>
       </div>
+
 
       <div className="max-w-2xl mx-auto my-8 p-6 bg-white rounded-lg shadow">
         <h1 className="text-2xl font-bold text-center mb-6">

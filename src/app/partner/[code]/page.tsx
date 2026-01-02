@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, usePathname } from "next/navigation";
+import Link from "next/link";
 import { getAllPartners, type Partner } from "@/lib/supabase";
 import PartnerCalculator from "@/components/PartnerCalculator";
 
@@ -78,12 +79,12 @@ export default function PartnerPage() {
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
           <p className="text-gray-700 mb-4">{error}</p>
-          <a 
+          <Link 
             href="/" 
             className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
             Go to Aquaria Calculator
-          </a>
+          </Link>
         </div>
       </div>
     );

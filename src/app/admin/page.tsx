@@ -12,6 +12,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPartner]);
 
   const loadData = async () => {
@@ -182,6 +183,15 @@ export default function AdminDashboard() {
   );
 }
 
+interface ModelPriceStructure {
+  system: number;
+  ship: number;
+  pad: number;
+  mobility: number;
+  warranty5: number;
+  warranty8: number;
+}
+
 interface QuoteDetailModalProps {
   quote: Quote;
   onClose: () => void;
@@ -191,17 +201,23 @@ function QuoteDetailModal({ quote, onClose }: QuoteDetailModalProps) {
   const config = quote.quote_config;
   const pricing = quote.partner_pricing || {};
 
-  // Use saved pricing from the quote
-  const modelPrices = pricing.modelPrices || {};
-  const tankPrices = pricing.tankPrices || {};
-  const tankPads = pricing.tankPads || {};
-  const cityDelivery = pricing.cityDelivery || {};
-  const sensorPrices = pricing.sensorPrices || {};
-  const filterPrices = pricing.filterPrices || {};
-  const pumpPrices = pricing.pumpPrices || {};
-  const trenchRates = pricing.trenchRates || {};
-  const ab_trenchRates = pricing.ab_trenchRates || {};
-  const fees = pricing.fees || {
+  // Use saved pricing from the quote with proper typing
+  const modelPrices: Record<string, ModelPriceStructure> = (pricing.modelPrices as Record<string, ModelPriceStructure>) || {};
+  const tankPrices: Record<string, number> = (pricing.tankPrices as Record<string, number>) || {};
+  const tankPads: Record<string, number> = (pricing.tankPads as Record<string, number>) || {};
+  const cityDelivery: Record<string, number> = (pricing.cityDelivery as Record<string, number>) || {};
+  const sensorPrices: Record<string, number> = (pricing.sensorPrices as Record<string, number>) || {};
+  const filterPrices: Record<string, number> = (pricing.filterPrices as Record<string, number>) || {};
+  const pumpPrices: Record<string, number> = (pricing.pumpPrices as Record<string, number>) || {};
+  const trenchRates: Record<string, number> = (pricing.trenchRates as Record<string, number>) || {};
+  const ab_trenchRates: Record<string, number> = (pricing.ab_trenchRates as Record<string, number>) || {};
+  const fees = (pricing.fees as {
+    admin: number;
+    commission: number;
+    aquariaManagement: number;
+    disposal: number;
+    net30: number;
+  }) || {
     admin: 500,
     commission: 2500,
     aquariaManagement: 500,
@@ -410,12 +426,12 @@ function QuoteDetailModal({ quote, onClose }: QuoteDetailModalProps) {
 
   const subtotal = breakdown.reduce((sum, item) => sum + item.cost, 0);
   const taxableItems = [config.tank, config.sensor, config.filter].filter(Boolean).length > 0;
-  const taxRate = pricing.taxRate || 0.0825;
+  const taxRate = (pricing.taxRate as number) || 0.0825;
   const tax = taxableItems ? subtotal * taxRate : 0;
 
- return (
+  return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4 overflow-y-auto">
-       <div className="bg-white rounded-lg max-w-5xl w-full my-8">        
+      <div className="bg-white rounded-lg max-w-5xl w-full my-8">        
         <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center rounded-t-lg">
           <h2 className="text-2xl font-bold text-gray-900">Quote Details: {quote.quote_number}</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">

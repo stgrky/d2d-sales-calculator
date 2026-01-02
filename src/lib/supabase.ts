@@ -19,7 +19,7 @@ export interface Partner {
   display_phone: string | null;
   display_email: string | null;
   display_website: string | null;
-  pricing_overrides: any | null;
+  pricing_overrides: Record<string, unknown> | null;
   is_active: boolean;
   can_create_quotes: boolean;
   can_edit_pricing: boolean;
@@ -112,7 +112,8 @@ export interface Quote {
   original_total: number | null;
   discount_amount: number;
   final_total: number;
-  partner_pricing: any | null;
+  partner_pricing: Record<string, unknown> | null;
+
   
   // Status
   status: 'draft' | 'sent' | 'accepted' | 'ordered';

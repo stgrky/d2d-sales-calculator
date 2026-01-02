@@ -28,10 +28,10 @@ export default function SavedQuotesList({ onLoadQuote, partnerId }: SavedQuotesL
   };
 
   useEffect(() => {
-    if (showList) {
-      console.log('Show list toggled, loading quotes...');
-      loadQuotes();
-    }
+  if (showList) {
+    loadQuotes();
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showList, partnerId]);
 
   const handleDelete = async (id: string, quoteNumber: string) => {
