@@ -40,15 +40,21 @@ export async function getAllPartners(): Promise<Partner[]> {
   return data || [];
 }
 
-// Generate unique quote number
-export function generateQuoteNumber(): string {
+// Generate unique quote number with partner prefix
+export function generateQuoteNumber(partnerCode?: string): string {
   const date = new Date();
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   const random = Math.random().toString(36).substring(2, 8).toUpperCase();
   
-  return `AQ-${year}${month}${day}-${random}`;
+  // Use first 2 letters of partner code, or "AQ" for Aquaria
+  let prefix = "AQ";
+  if (partnerCode && partnerCode !== "AQUARIA_HQ") {
+    prefix = partnerCode.substring(0, 2).toUpperCase();
+  }
+  
+  return `${prefix}-${year}${month}${day}-${random}`;
 }
 
 // Quote Config interface (matching your current state)

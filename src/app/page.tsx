@@ -580,7 +580,7 @@ const saveCurrentQuote = async () => {
     };
 
     const quoteData = {
-      quote_number: quoteNumber || generateQuoteNumber(),
+      quote_number: quoteNumber || generateQuoteNumber(currentPartner?.partner_code),
       customer_company: customer.company || null,
       customer_name: customer.contactName,
       customer_email: customer.email || null,
@@ -1590,18 +1590,17 @@ doc.save(filename);
 <button
   type="button"
   onClick={resetAll}
-  className="block w-full py-3 mt-2 text-lg bg-gray-100 text-gray-800 rounded border border-gray-300 hover:bg-gray-200"
+  className="block w-full py-3 mt-4 text-lg bg-gray-100 text-gray-800 rounded border border-gray-300 hover:bg-gray-200"
 >
   Clear All Fields
 </button>
 
 <button
-  className="block w-full py-3 mt-4 text-lg bg-green-600 text-white rounded hover:bg-green-700"
+  className="block w-full py-3 mt-3 text-lg bg-green-600 text-white rounded hover:bg-green-700"
   onClick={calculateTotal}
 >
   {quoteIsStale ? "Calculate Total" : "Calculate Total"}
 </button>
-
 
 {DISCOUNT_FEATURE_ENABLED && (
   <button
@@ -1610,7 +1609,6 @@ doc.save(filename);
       setDiscountActive((prev) => {
         const next = !prev;
 
-        // Only adjust totals if we already have a quote
         if (originalTotal !== null) {
           if (next) {
             const discAmount = originalTotal * DISCOUNT_CAMPAIGN.rate;
@@ -1631,7 +1629,7 @@ doc.save(filename);
         return next;
       });
     }}
-    className={`w-full py-2 mt-4 rounded text-white ${
+    className={`w-full py-2 mt-3 rounded text-white ${
       discountActive
         ? "bg-gray-600 hover:bg-gray-700"
         : "bg-gray-400 hover:bg-gray-500"
@@ -1646,7 +1644,7 @@ doc.save(filename);
 
 <button
   disabled={quoteTotal === null || quoteIsStale}
-  className={`block w-full py-3 mt-4 text-lg rounded text-white ${
+  className={`block w-full py-3 mt-3 text-lg rounded text-white ${
     quoteTotal === null || quoteIsStale
       ? 'bg-gray-400 cursor-not-allowed'
       : 'bg-blue-600 hover:bg-blue-700'
@@ -1663,25 +1661,6 @@ doc.save(filename);
 </button>
 
 <button
-  type="button"
-  disabled={quoteTotal === null || quoteIsStale}
-  onClick={saveCurrentQuote}
-  className={`block w-full py-3 mt-4 text-lg rounded text-white ${
-    quoteTotal === null || quoteIsStale
-      ? 'bg-gray-400 cursor-not-allowed'
-      : 'bg-green-600 hover:bg-green-700'
-  }`}
->
-  {currentQuoteId ? 'Update Saved Quote' : 'Save Quote'}
-</button>
-
-{quoteNumber && (
-  <p className="text-center text-sm text-gray-600 mt-2">
-    Quote #: <strong>{quoteNumber}</strong>
-  </p>
-)}
-
-   <button
   onClick={() => {
   if (quoteTotal === null || quoteIsStale) {
     alert("Please click 'Calculate Total' before viewing financing options.");
@@ -1699,22 +1678,40 @@ doc.save(filename);
   });
 }}
 
-  className="block w-full py-3 mt-4 text-lg bg-gray-600 text-white rounded text-center hover:bg-gray-700"
+  className="block w-full py-3 mt-3 text-lg bg-gray-600 text-white rounded text-center hover:bg-gray-700"
 >
   {showFinancing ? "Hide Financing Calculator" : "See Financing Options"}
 </button>
-
 
 <div
   ref={financingRef}
   className={`transition-all duration-500 ease-in-out transform ${
     showFinancing
-      ? 'opacity-100 translate-y-0 max-h-[1000px] mb-4'
+      ? 'opacity-100 translate-y-0 max-h-[1000px] mb-3'
       : 'opacity-0 -translate-y-4 max-h-0 overflow-hidden'
   }`}
 >
   {showFinancing && <FinancingCalculator totalAmount={total} />}
 </div>
+
+<button
+  type="button"
+  disabled={quoteTotal === null || quoteIsStale}
+  onClick={saveCurrentQuote}
+  className={`block w-full py-3 mt-3 text-lg rounded text-white ${
+    quoteTotal === null || quoteIsStale
+      ? 'bg-gray-400 cursor-not-allowed'
+      : 'bg-green-600 hover:bg-green-700'
+  }`}
+>
+  {currentQuoteId ? 'Update Saved Quote' : 'Save Quote'}
+</button>
+
+{quoteNumber && (
+  <p className="text-center text-sm text-gray-600 mt-2">
+    Quote #: <strong>{quoteNumber}</strong>
+  </p>
+)}
 
 <SavedQuotesList 
   onLoadQuote={loadQuote}
