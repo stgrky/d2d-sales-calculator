@@ -82,13 +82,6 @@ export default function CustomerInfoPanel({ value, onChange }: Props) {
       </div>
 
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
-        <div>
-          <label className="text-sm text-gray-700">PO / Project ID (optional)</label>
-          <input className="w-full border rounded p-2"
-                 value={value.poNumber ?? ""} onChange={e => set("poNumber", e.target.value)} />
-        </div>
-      </div>
 
       <p className="mt-3 text-xs text-gray-500">
         Fields marked * are required to generate the PDF.

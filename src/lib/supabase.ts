@@ -98,7 +98,6 @@ export interface Quote {
   service_city: string;
   service_state: string;
   service_zip: string;
-  po_number: string | null;
   
   // Partner info
   partner_id: string | null;

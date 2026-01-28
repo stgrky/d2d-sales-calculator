@@ -458,9 +458,6 @@ function QuoteDetailModal({ quote, onClose }: QuoteDetailModalProps) {
                 <span className="font-medium">Service Address:</span>{' '}
                 {quote.service_street}, {quote.service_city}, {quote.service_state} {quote.service_zip}
               </div>
-              {quote.po_number && (
-                <div className="text-gray-900"><span className="font-medium">PO Number:</span> {quote.po_number}</div>
-              )}
             </div>
           </section>
 

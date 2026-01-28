@@ -490,7 +490,6 @@ export default function PartnerCalculator({ partner }: PartnerCalculatorProps) {
       serviceCity: quote.service_city,
       serviceState: quote.service_state,
       serviceZip: quote.service_zip,
-      poNumber: quote.po_number || "",
     });
 
     const config = quote.quote_config;

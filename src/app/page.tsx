@@ -27,11 +27,11 @@ import SavedQuotesList from "@/components/SavedQuotesList";
 
 
 // Discount master switch
-const DISCOUNT_FEATURE_ENABLED = false; // flip to false to globally disable
+const DISCOUNT_FEATURE_ENABLED = true; // flip to false to globally disable
 // 2025 EOY / future promo discounts
 const DISCOUNT_CAMPAIGN = {
-  label: "Aquaria End of Year Discount",
-  rate: 0.13,
+  label: "Winter Storm Discount",
+  rate: 0.10,
 };
 
 const HomePage: React.FC = () => {
@@ -92,7 +92,6 @@ const [customer, setCustomer] = useState<CustomerInfo>({
   serviceCity: "",
   serviceState: "",
   serviceZip: "",
-  poNumber: "",
 });
 const [originalTotal, setOriginalTotal] = useState<number | null>(null);
 const [discountedTotal, setDiscountedTotal] = useState<number | null>(null);
@@ -463,7 +462,6 @@ function resetAll() {
     serviceCity: "",
     serviceState: "",
     serviceZip: "",
-    poNumber: "",
   });
 
   // Clear stored customer data
@@ -585,7 +583,6 @@ const saveCurrentQuote = async () => {
       service_city: customer.serviceCity,
       service_state: customer.serviceState,
       service_zip: customer.serviceZip,
-      po_number: customer.poNumber || null,
       partner_id: currentPartner?.partner_code || 'AQUARIA_HQ',
       partner_name: currentPartner?.company_name || 'Aquaria Technologies',
       partner_logo_url: currentPartner?.logo_url || null,
@@ -636,7 +633,6 @@ const loadQuote = (quote: Quote) => {
     serviceCity: quote.service_city,
     serviceState: quote.service_state,
     serviceZip: quote.service_zip,
-    poNumber: quote.po_number || "",
   });
 
   // Load quote config
@@ -695,24 +691,25 @@ const downloadPDF = async () => {
   const missing = REQUIRED_CUSTOMER_KEYS.filter(k => !customer[k] || String(customer[k]).trim() === "");
   if (missing.length) {
     alert("Please complete required customer fields before generating the PDF.");
-  return;
-}
-
+    return;
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const jsPDF = (window as any).jspdf?.jsPDF;
-  if (!jsPDF) return;
+  if (!jsPDF) {
+    alert('PDF library not loaded. Please refresh the page and try again.');
+    return;
+  }
 
   const doc = new jsPDF("p", "mm", "a4");
   const date = new Date().toLocaleDateString("en-US");
-  const baseTotal = originalTotal ?? total; // fallback just in case
+  const baseTotal = originalTotal ?? total;
   const isDiscountActive =
-  DISCOUNT_FEATURE_ENABLED &&
-  discountActive &&
-  originalTotal !== null &&
-  discountedTotal !== null &&
-  discountedTotal !== originalTotal;
-
+    DISCOUNT_FEATURE_ENABLED &&
+    discountActive &&
+    originalTotal !== null &&
+    discountedTotal !== null &&
+    discountedTotal !== originalTotal;
 
   const baseTotalStr = baseTotal.toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -737,13 +734,10 @@ const downloadPDF = async () => {
     maximumFractionDigits: 2,
   });
 
-  // Keep `total` as the final discounted total for filename / footer if you want
-
-
   // --- helpers ---
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  let y = 40; // start content below header
+  let y = 40;
   const leftX = 20;
 
   function ensureSpace(needs: number) {
@@ -757,14 +751,12 @@ const downloadPDF = async () => {
     ensureSpace(20);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.setTextColor(43, 103, 119); // Aquaria blue-green
+    doc.setTextColor(43, 103, 119);
     doc.text(title, leftX, y);
     y += 3;
-
     doc.setDrawColor(200);
     doc.line(leftX, y, pageWidth - leftX, y);
     y += 8;
-
     doc.setTextColor(0, 0, 0);
   };
 
@@ -792,31 +784,72 @@ const downloadPDF = async () => {
     return (el?.textContent || "None").trim();
   };
 
-  // --- Preload logo (recommend hosting in /public and using "/AQ_TRANSPARENT_LOGO.png") ---
-  const logoUrl =
-    "https://raw.githubusercontent.com/KhalidMas23/Aquaria-Calculator/52de119ecbc4d4910952b0384c5092621f70e62d/AQ_TRANSPARENT_LOGO.png";
+ // --- Load and compress logo ---
+let logoData: { dataUrl: string; width: number; height: number } | null = null;
 
-  const logo = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.crossOrigin = "anonymous";
-    img.src = logoUrl;
+try {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    const timeoutId = setTimeout(() => reject(new Error('Timeout')), 5000);
+    
+    image.onload = () => {
+      clearTimeout(timeoutId);
+      resolve(image);
+    };
+    image.onerror = () => {
+      clearTimeout(timeoutId);
+      reject(new Error('Failed to load'));
+    };
+    
+    image.src = "/AQ_TRANSPARENT_LOGO.png";
   });
 
-  // --- Header Bar & Logo ---
-  doc.setFillColor(243, 244, 246); // Tailwind gray-100
-  doc.rect(0, 0, pageWidth, 25, "F");
+  // Compress PNG while maintaining transparency
+  const canvas = document.createElement('canvas');
+  const maxWidth = 150; // Smaller = smaller file size
+  const scale = maxWidth / img.width;
+  canvas.width = maxWidth;
+  canvas.height = img.height * scale;
+  
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    logoData = {
+      dataUrl: canvas.toDataURL('image/png'),
+      width: canvas.width,
+      height: canvas.height
+    };
+  }
+} catch (err) {
+  console.warn('Logo failed to load:', err);
+}
 
-  const logoWidth = 35;
-  const aspectRatio = logo.width / logo.height;
-  const logoHeight = logoWidth / aspectRatio;
-  doc.addImage(logo, "PNG", 15, 5, logoWidth, logoHeight);
+// --- Header Bar & Logo ---
+doc.setFillColor(243, 244, 246);
+doc.rect(0, 0, pageWidth, 25, "F");
+
+if (logoData) {
+  try {
+    const logoWidth = 35;
+    const aspectRatio = logoData.width / logoData.height;
+    const logoHeight = logoWidth / aspectRatio;
+    
+    doc.addImage(logoData.dataUrl, "PNG", 15, 5, logoWidth, logoHeight);
+  } catch (err) {
+    console.warn('Failed to add logo to PDF:', err);
+  }
+} else {
+  // Fallback: Company name as text
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(43, 103, 119);
+  doc.text("Aquaria Technologies", 15, 12);
+}
 
   // Company Info Right
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(55, 65, 81); // Tailwind gray-700
+  doc.setTextColor(55, 65, 81);
   const infoX = pageWidth - 80;
   let infoY = 12;
   doc.text("600 Congress Ave, Austin, TX 78701", infoX, infoY);
@@ -840,7 +873,6 @@ const downloadPDF = async () => {
   if (customer.phone) { doc.text(`Phone: ${customer.phone}`, leftX, custY); custY += 5; }
   if (customer.email) { doc.text(`Email: ${customer.email}`, leftX, custY); custY += 5; }
   doc.text(`Service: ${addr}`, leftX, custY); custY += 5;
-  if (customer.poNumber) { doc.text(`PO / Project: ${customer.poNumber}`, leftX, custY); custY += 5; }
 
   // bump main content start if needed so it doesn't collide
   y = Math.max(y, custY + 6);
@@ -1227,10 +1259,11 @@ doc.save(filename);
         className="p-2 border border-gray-300 rounded w-20"
         value={filterQty}
         onChange={(e) => {
-          setFilterQty(parseInt(e.target.value) || 0);
+          const val = e.target.value.replace(/^0+/, '') || '0';
+          setFilterQty(parseInt(val, 10) || 0);
           setQuoteIsStale(true);
           setShowFinancing(false);
-        }}
+          }}
       />
       <span className="ml-2">Qty</span>
     </div>
@@ -1313,8 +1346,9 @@ doc.save(filename);
             className="border border-gray-300 rounded px-2 py-1"
             value={section.distance}
             onChange={(e) => {
+              const val = e.target.value.replace(/^0+/, '') || '0';
               const updated = [...trenchingSections];
-              updated[index].distance = parseFloat(e.target.value) || 0;
+              updated[index].distance = parseFloat(val) || 0;
               setTrenchingSections(updated);
               setQuoteIsStale(true);
               setShowFinancing(false);
@@ -1402,8 +1436,9 @@ doc.save(filename);
           className="border border-gray-300 rounded px-2 py-1"
           value={section.distance}
           onChange={(e) => {
+            const val = e.target.value.replace(/^0+/, '') || '0';
             const updated = [...ab_trenchingSections];
-            updated[index].distance = parseFloat(e.target.value) || 0;
+            updated[index].distance = parseFloat(val) || 0;
             setab_TrenchingSections(updated);
             setQuoteIsStale(true);
             setShowFinancing(false);
@@ -1505,7 +1540,8 @@ doc.save(filename);
         min={0}
         value={demolition.distance}
         onChange={(e) => {
-          setDemolition({ ...demolition, distance: Number(e.target.value) });
+          const val = e.target.value.replace(/^0+/, '') || '0';
+          setDemolition({ ...demolition, distance: Number(val) });
           setQuoteIsStale(true);
           setShowFinancing(false);
         }}
@@ -1632,8 +1668,8 @@ doc.save(filename);
     }`}
   >
     {discountActive
-      ? "Disable End-of-Year Discount"
-      : "Enable End-of-Year Discount"}
+      ? "Disable Winter Storm Discount"
+      : "Enable Winter Storm Discount"}
   </button>
   
 )}
